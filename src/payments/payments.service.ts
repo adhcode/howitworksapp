@@ -350,7 +350,7 @@ export class PaymentsService {
   async updateOverduePayments() {
     try {
       const today = new Date();
-      
+
       const result = await this.db
         .update(payments)
         .set({
@@ -366,6 +366,74 @@ export class PaymentsService {
       return result;
     } catch (error) {
       console.error('Error updating overdue payments:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Record a payment after successful verification
+   */
+  async recordPayment(paymentData: {
+    tenantId: string;
+    amount: number;
+    reference: string;
+    paymentMethod: string;
+    status: string;
+    paidAt: Date;
+    metadata?: any;
+  }) {
+    try {
+      // Find the pending payment for this tenant and amount to mark as paid
+      const [existingPayment] = await this.db
+        .select()
+        .from(payments)
+        .where(and(
+          eq(payments.tenantId, paymentData.tenantId),
+          eq(payments.status, 'pending'),
+          eq(payments.amount, paymentData.amount.toString())
+        ))
+        .limit(1);
+
+      if (existingPayment) {
+        // Update existing payment
+        const result = await this.db
+          .update(payments)
+          .set({
+            status: paymentData.status,
+            amountPaid: paymentData.amount.toString(),
+            paidDate: paymentData.paidAt,
+            paymentMethod: paymentData.paymentMethod,
+            reference: paymentData.reference,
+            metadata: paymentData.metadata,
+            updatedAt: new Date(),
+          })
+          .where(eq(payments.id, existingPayment.id));
+
+        console.log('Payment updated successfully:', paymentData.reference);
+        return result;
+      } else {
+        // Create new payment record
+        const result = await this.db
+          .insert(payments)
+          .values({
+            tenantId: paymentData.tenantId,
+            amount: paymentData.amount.toString(),
+            amountPaid: paymentData.amount.toString(),
+            status: paymentData.status,
+            paidDate: paymentData.paidAt,
+            paymentMethod: paymentData.paymentMethod,
+            reference: paymentData.reference,
+            metadata: paymentData.metadata,
+            dueDate: paymentData.paidAt, // Use paid date as due date for ad-hoc payments
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          });
+
+        console.log('Payment recorded successfully:', paymentData.reference);
+        return result;
+      }
+    } catch (error) {
+      console.error('Error recording payment:', error);
       throw error;
     }
   }

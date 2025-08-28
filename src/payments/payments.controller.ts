@@ -129,8 +129,8 @@ export class PaymentsController {
     @ApiResponse({ status: 200, description: 'Payment verified successfully' })
     async verifyPayment(@Body() verifyPaymentDto: VerifyPaymentDto, @Request() req: any) {
         const result = await this.paystackService.verifyTransaction(verifyPaymentDto.reference);
-        
-        if (result.status && result.data.status === 'success') {
+
+        if (result.status && result.data && result.data.status === 'success') {
             // Save payment to database
             try {
                 await this.paymentsService.recordPayment({
@@ -155,23 +155,27 @@ export class PaymentsController {
     @ApiResponse({ status: 200, description: 'Webhook processed successfully' })
     async handleWebhook(@Body() webhookData: PaymentWebhookDto) {
         console.log('Paystack webhook received:', webhookData.event);
-        
-        if (webhookData.event === 'charge.success') {
+
+        if (webhookData.event === 'charge.success' && webhookData.data) {
             const paymentData = webhookData.data;
-            
+
             try {
                 // Record successful payment
-                await this.paymentsService.recordPayment({
-                    tenantId: paymentData.metadata?.userId,
-                    amount: paymentData.amount / 100, // Convert from kobo
-                    reference: paymentData.reference,
-                    paymentMethod: 'paystack',
-                    status: 'paid',
-                    paidAt: new Date(paymentData.paid_at),
-                    metadata: paymentData,
-                });
-                
-                console.log('Payment recorded successfully:', paymentData.reference);
+                if (paymentData.metadata?.userId && paymentData.reference) {
+                    await this.paymentsService.recordPayment({
+                        tenantId: paymentData.metadata.userId,
+                        amount: paymentData.amount / 100, // Convert from kobo
+                        reference: paymentData.reference,
+                        paymentMethod: 'paystack',
+                        status: 'paid',
+                        paidAt: new Date(paymentData.paid_at),
+                        metadata: paymentData,
+                    });
+
+                    console.log('Payment recorded successfully:', paymentData.reference);
+                } else {
+                    console.error('Invalid webhook data: missing userId or reference');
+                }
             } catch (error) {
                 console.error('Error processing webhook:', error);
             }
