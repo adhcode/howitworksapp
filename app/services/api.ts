@@ -8,7 +8,7 @@ const config = {
     enableLogging: true,
   },
   production: {
-    baseURL: 'https://backend-production-bf43.up.railway.app',
+    baseURL: 'https://howitworksapp-production.up.railway.app',
     timeout: 15000,
     enableLogging: false,
   },
