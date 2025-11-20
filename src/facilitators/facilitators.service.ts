@@ -1,6 +1,6 @@
 import { Injectable, Inject, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { eq, and, or, desc, sql } from 'drizzle-orm';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 import { DATABASE_CONNECTION } from '../database/database.module';
 import { users, properties, messages, maintenanceRequests, units, leases, payments } from '../database/schema';
 import { CreateFacilitatorDto, AssignFacilitatorDto, FacilitatorStatsDto } from './dto/facilitator.dto';
