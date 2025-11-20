@@ -1,9 +1,8 @@
 import { Module, Global } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { drizzle } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
 import * as schema from './schema';
-
-const postgres = require('postgres');
 
 export const DATABASE_CONNECTION = 'DATABASE_CONNECTION';
 
@@ -15,11 +14,21 @@ export const DATABASE_CONNECTION = 'DATABASE_CONNECTION';
       provide: DATABASE_CONNECTION,
       useFactory: async (configService: ConfigService) => {
         const connectionString = configService.get<string>('DATABASE_URL');
+        
         if (!connectionString) {
-          throw new Error('DATABASE_URL is not defined in environment variables');
+          throw new Error('DATABASE_URL environment variable is required');
         }
-        const client = postgres(connectionString);
-        return drizzle(client, { schema });
+
+        // Create postgres client with SSL support
+        const client = postgres(connectionString, {
+          max: 10, // Connection pool size
+          ssl: configService.get<string>('DB_SSL') === 'false' ? false : { rejectUnauthorized: false },
+        });
+
+        // Create and return drizzle instance
+        const db = drizzle(client, { schema });
+
+        return db;
       },
       inject: [ConfigService],
     },

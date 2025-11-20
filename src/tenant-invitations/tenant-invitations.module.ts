@@ -5,13 +5,11 @@ import { TenantInvitationsController } from './tenant-invitations.controller';
 import { TenantInvitationsService } from './tenant-invitations.service';
 import { UsersModule } from '../users/users.module';
 import { DatabaseModule } from '../database/database.module';
-import { PaymentsModule } from '../payments/payments.module';
 
 @Module({
   imports: [
     DatabaseModule, 
     UsersModule,
-    PaymentsModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({

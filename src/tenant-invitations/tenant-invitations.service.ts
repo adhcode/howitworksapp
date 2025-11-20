@@ -1,9 +1,9 @@
 import { Injectable, Inject, NotFoundException, BadRequestException } from '@nestjs/common';
 import { eq, and } from 'drizzle-orm';
 import { DATABASE_CONNECTION } from '../database/database.module';
-import { tenantInvitations, NewTenantInvitation, TenantInvitation, units, properties } from '../database/schema';
+import { tenantInvitations, NewTenantInvitation, TenantInvitation, units, properties, users, leases } from '../database/schema';
+import { LandlordPayoutType } from '../tenant-rent-contracts/dto/tenant-rent-contract.dto';
 import { UsersService } from '../users/users.service';
-import { PaymentsService } from '../payments/payments.service';
 import { v4 as uuidv4 } from 'uuid';
 import * as crypto from 'crypto';
 
@@ -12,7 +12,6 @@ export class TenantInvitationsService {
   constructor(
     @Inject(DATABASE_CONNECTION) private readonly db: any,
     private readonly usersService: UsersService,
-    private readonly paymentsService: PaymentsService,
   ) { }
 
   private generateInvitationToken(): string {
@@ -40,6 +39,9 @@ export class TenantInvitationsService {
     monthlyRent: number;
     securityDeposit?: number;
     notes?: string;
+    landlordPayoutType?: 'monthly' | 'yearly';
+    isExistingTenant?: boolean;
+    originalExpiryDate?: string;
   }): Promise<TenantInvitation> {
     // Check if unit exists and is available
     const [unit] = await this.db
@@ -82,6 +84,21 @@ export class TenantInvitationsService {
     console.log('Invitation data:', JSON.stringify(invitationData, null, 2));
     console.log('=== END DEBUG ===');
 
+    // Build enhanced notes with contract information
+    let enhancedNotes = invitationData.notes || '';
+    
+    if (invitationData.landlordPayoutType) {
+      enhancedNotes += `${enhancedNotes ? ', ' : ''}Landlord Payout: ${invitationData.landlordPayoutType}`;
+    }
+    
+    if (invitationData.isExistingTenant !== undefined) {
+      enhancedNotes += `${enhancedNotes ? ', ' : ''}Existing Tenant: ${invitationData.isExistingTenant}`;
+    }
+    
+    if (invitationData.originalExpiryDate) {
+      enhancedNotes += `${enhancedNotes ? ', ' : ''}Original Expiry: ${invitationData.originalExpiryDate}`;
+    }
+
     const newInvitation: NewTenantInvitation = {
       invitationToken,
       landlordId: invitationData.landlordId,
@@ -97,7 +114,7 @@ export class TenantInvitationsService {
       leaseEndDate: new Date(invitationData.leaseEndDate),
       monthlyRent: invitationData.monthlyRent.toString(),
       securityDeposit: invitationData.securityDeposit?.toString() || null,
-      notes: invitationData.notes || null,
+      notes: enhancedNotes || null,
       expiresAt,
     };
 
@@ -117,7 +134,7 @@ export class TenantInvitationsService {
       leaseEndDate: new Date(invitationData.leaseEndDate),
       monthlyRent: invitationData.monthlyRent.toString(),
       securityDeposit: invitationData.securityDeposit?.toString() || null,
-      notes: invitationData.notes || null,
+      notes: enhancedNotes || null,
       expiresAt: expiresAt,
     };
 
@@ -195,27 +212,129 @@ export class TenantInvitationsService {
       .set({ isAvailable: false })
       .where(eq(units.id, invitation.unitId));
 
-    // Generate payment schedule for the tenant
+    // Create lease record
     try {
-      console.log('Generating payment schedule for invitation:', updatedInvitation.id);
-      await this.paymentsService.generatePaymentSchedule(updatedInvitation.id);
-      console.log('Payment schedule generated successfully');
+      // Format dates as strings for date fields (not timestamp)
+      const startDate = new Date(invitation.leaseStartDate);
+      const endDate = new Date(invitation.leaseEndDate);
+      
+      await this.db.insert(leases).values({
+        tenantId,
+        landlordId: invitation.landlordId,
+        propertyId: invitation.propertyId,
+        unitId: invitation.unitId,
+        startDate: startDate.toISOString().split('T')[0], // Format as YYYY-MM-DD
+        endDate: endDate.toISOString().split('T')[0], // Format as YYYY-MM-DD
+        monthlyRent: invitation.monthlyRent,
+        securityDeposit: invitation.securityDeposit,
+        status: 'active',
+        signedAt: new Date(),
+      });
+      console.log('✅ Lease created successfully for tenant:', tenantId);
     } catch (error) {
-      console.error('Error generating payment schedule:', error);
-      // Don't fail the invitation acceptance if payment schedule generation fails
+      console.error('❌ Error creating lease:', error);
+      // Don't fail the invitation acceptance if lease creation fails
     }
+
+    // Create rent contract if landlord payout preference is specified in notes
+    try {
+      await this.createRentContractFromInvitation(updatedInvitation, invitation);
+    } catch (error) {
+      console.error('Error creating rent contract:', error);
+      // Don't fail the invitation acceptance if rent contract creation fails
+    }
+
+    // Payment schedules are now handled through the tenant_rent_contracts table
+    // See ContractsService for creating contracts which manage payment schedules
+    console.log('Payment schedules are now managed through rent contracts');
 
     return updatedInvitation;
   }
 
-  async getInvitationsByLandlord(landlordId: string): Promise<TenantInvitation[]> {
+  /**
+   * Create rent contract from accepted invitation
+   */
+  private async createRentContractFromInvitation(invitation: TenantInvitation, invitationDetails: any): Promise<void> {
+    // Parse landlord payout preference and existing tenant status from notes
+    const notes = invitation.notes || '';
+    let landlordPayoutType = 'monthly'; // default
+    let isExistingTenant = false;
+    let originalExpiryDate: Date | null = null;
+
+    // Parse notes for contract information
+    // Expected format: "Payment Frequency: Monthly, Landlord Payout: yearly, Existing Tenant: true, Original Expiry: 2024-06-30"
+    if (notes.includes('Landlord Payout:')) {
+      const payoutMatch = notes.match(/Landlord Payout:\s*(monthly|yearly)/i);
+      if (payoutMatch) {
+        landlordPayoutType = payoutMatch[1].toLowerCase();
+      }
+    }
+
+    if (notes.includes('Existing Tenant:')) {
+      const existingMatch = notes.match(/Existing Tenant:\s*(true|false)/i);
+      if (existingMatch) {
+        isExistingTenant = existingMatch[1].toLowerCase() === 'true';
+      }
+    }
+
+    if (notes.includes('Original Expiry:')) {
+      const expiryMatch = notes.match(/Original Expiry:\s*(\d{4}-\d{2}-\d{2})/);
+      if (expiryMatch) {
+        originalExpiryDate = new Date(expiryMatch[1]);
+      }
+    }
+
+    // Only create rent contract if we have the necessary information
+    if (notes.includes('Landlord Payout:')) {
+      // Import TenantPaymentService dynamically to avoid circular dependency
+      const { TenantPaymentService } = await import('../tenant-rent-contracts/tenant-payment.service');
+      const tenantPaymentService = new TenantPaymentService(this.db);
+
+      const contractData = {
+        tenantId: invitation.tenantId!,
+        landlordId: invitation.landlordId,
+        propertyId: invitation.propertyId,
+        unitId: invitation.unitId,
+        monthlyAmount: parseFloat(invitation.monthlyRent),
+        expiryDate: invitation.leaseEndDate.toISOString(),
+        landlordPayoutType: landlordPayoutType as LandlordPayoutType,
+        isExistingTenant,
+        originalExpiryDate: originalExpiryDate?.toISOString(),
+      };
+
+      await tenantPaymentService.createRentContract(contractData);
+      console.log('Rent contract created successfully for invitation:', invitation.id);
+    }
+  }
+
+  async getInvitationsByLandlord(landlordId: string): Promise<any[]> {
     try {
-      return await this.db
-        .select()
+      console.log('🗄️ Querying database for invitations with landlordId:', landlordId);
+      
+      const invitations = await this.db
+        .select({
+          invitation: tenantInvitations,
+          tenant: users, // Include tenant user data if they've accepted
+        })
         .from(tenantInvitations)
+        .leftJoin(users, eq(tenantInvitations.tenantId, users.id))
         .where(eq(tenantInvitations.landlordId, landlordId));
+      
+      console.log('🗄️ Database returned', invitations.length, 'invitations');
+      
+      // Merge invitation and tenant data, using real email if tenant has accepted
+      const enrichedInvitations = invitations.map(({ invitation, tenant }) => ({
+        ...invitation,
+        // Override with real tenant data if they've accepted
+        email: tenant?.email || invitation.email,
+        phone: tenant?.phoneNumber || invitation.phone,
+        // Add flag to indicate if using real data
+        hasAcceptedAccount: !!tenant,
+      }));
+      
+      return enrichedInvitations;
     } catch (error) {
-      console.error('Error getting invitations by landlord:', error);
+      console.error('❌ Error getting invitations by landlord:', error);
       return [];
     }
   }

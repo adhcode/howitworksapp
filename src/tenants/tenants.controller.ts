@@ -22,6 +22,18 @@ export class TenantsController {
         };
     }
 
+    @Get('rent-contract')
+    @ApiOperation({ summary: 'Get current tenant rent contract' })
+    @ApiResponse({ status: 200, description: 'Rent contract retrieved successfully' })
+    async getRentContract(@Request() req: any) {
+        const contract = await this.tenantsService.getTenantRentContract(req.user.id);
+
+        return {
+            success: true,
+            data: contract,
+        };
+    }
+
     @Get('payments')
     @ApiOperation({ summary: 'Get tenant payment information' })
     @ApiResponse({ status: 200, description: 'Payment data retrieved successfully' })

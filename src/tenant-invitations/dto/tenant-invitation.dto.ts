@@ -1,4 +1,4 @@
-import { IsString, IsEmail, IsOptional, IsNumber, IsDateString, IsUUID } from 'class-validator';
+import { IsString, IsEmail, IsOptional, IsNumber, IsDateString, IsUUID, IsBoolean } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateTenantInvitationDto {
@@ -57,6 +57,21 @@ export class CreateTenantInvitationDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @ApiPropertyOptional({ description: 'Landlord payout preference', enum: ['monthly', 'yearly'] })
+  @IsOptional()
+  @IsString()
+  landlordPayoutType?: 'monthly' | 'yearly';
+
+  @ApiPropertyOptional({ description: 'Whether this is an existing tenant being transitioned' })
+  @IsOptional()
+  @IsBoolean()
+  isExistingTenant?: boolean;
+
+  @ApiPropertyOptional({ description: 'Original expiry date for existing tenants' })
+  @IsOptional()
+  @IsDateString()
+  originalExpiryDate?: string;
 }
 
 export class AcceptInvitationDto {

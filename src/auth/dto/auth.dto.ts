@@ -5,6 +5,7 @@ export enum UserRole {
   LANDLORD = 'landlord',
   TENANT = 'tenant',
   ADMIN = 'admin',
+  FACILITATOR = 'facilitator',
 }
 
 export class LoginDto {

@@ -7,6 +7,7 @@ export const propertyStatusEnum = pgEnum('property_status', ['active', 'inactive
 export const properties = pgTable('properties', {
   id: uuid('id').defaultRandom().primaryKey(),
   landlordId: uuid('landlord_id').references(() => users.id).notNull(),
+  facilitatorId: uuid('facilitator_id').references(() => users.id),
   name: varchar('name', { length: 255 }).notNull(),
   address: text('address').notNull(),
   city: varchar('city', { length: 100 }).notNull(),

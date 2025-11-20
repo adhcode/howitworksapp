@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { DatabaseModule } from './database/database.module';
@@ -11,9 +12,20 @@ import { PropertiesModule } from './properties/properties.module';
 import { TenantInvitationsModule } from './tenant-invitations/tenant-invitations.module';
 import { TenantsModule } from './tenants/tenants.module';
 import { LandlordModule } from './landlord/landlord.module';
-import { PaymentsModule } from './payments/payments.module';
 import { MessagesModule } from './messages/messages.module';
 import { UploadModule } from './upload/upload.module';
+import { AdminModule } from './admin/admin.module';
+import { FacilitatorsModule } from './facilitators/facilitators.module';
+
+// NEW CORE MODULES (Clean Architecture)
+import { ContractsModule } from './core/contracts/contracts.module';
+import { PaymentsModule as CorePaymentsModule } from './core/payments/payments.module';
+import { EscrowModule } from './core/escrow/escrow.module';
+import { NotificationsModule } from './core/notifications/notifications.module';
+
+// OLD MODULES (Deprecated - will be removed)
+// import { TenantRentContractsModule } from './tenant-rent-contracts/tenant-rent-contracts.module';
+// import { PaymentsModule as OldPaymentsModule } from './payments/payments.module';
 
 @Module({
   imports: [
@@ -22,6 +34,7 @@ import { UploadModule } from './upload/upload.module';
       envFilePath: '.env',
       cache: true,
     }),
+    ScheduleModule.forRoot(),
     ThrottlerModule.forRoot([
       {
         name: 'short',
@@ -47,9 +60,20 @@ import { UploadModule } from './upload/upload.module';
     TenantInvitationsModule,
     TenantsModule,
     LandlordModule,
-    PaymentsModule,
     MessagesModule,
     UploadModule,
+    AdminModule,
+    FacilitatorsModule,
+    
+    // NEW CORE MODULES (Clean Architecture)
+    ContractsModule,
+    CorePaymentsModule,
+    EscrowModule,
+    NotificationsModule,
+    
+    // OLD MODULES (Commented out - being replaced)
+    // TenantRentContractsModule,
+    // OldPaymentsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -104,7 +104,16 @@ export class TenantInvitationsController {
   @ApiOperation({ summary: 'Get invitations created by landlord' })
   @ApiResponse({ status: 200, description: 'Invitations retrieved successfully' })
   async getMyInvitations(@Request() req: any) {
+    console.log('🔍 GET /my-invitations called');
+    console.log('🔍 Landlord ID from JWT:', req.user.id);
+    console.log('🔍 User object:', JSON.stringify(req.user, null, 2));
+    
     const invitations = await this.tenantInvitationsService.getInvitationsByLandlord(req.user.id);
+    
+    console.log('🔍 Invitations found:', invitations.length);
+    if (invitations.length > 0) {
+      console.log('🔍 First invitation:', JSON.stringify(invitations[0], null, 2));
+    }
 
     return {
       success: true,

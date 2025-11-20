@@ -93,10 +93,64 @@ export class UsersService {
     return updatedUser;
   }
 
+  async updateLastLogin(id: string): Promise<void> {
+    await this.db
+      .update(users)
+      .set({ 
+        lastLoginAt: new Date(),
+        updatedAt: new Date() 
+      })
+      .where(eq(users.id, id));
+  }
+
   async delete(id: string): Promise<void> {
     const result = await this.db.delete(users).where(eq(users.id, id));
     if (result.rowCount === 0) {
       throw new NotFoundException('User not found');
     }
+  }
+
+  async findByPasswordResetToken(token: string): Promise<User | null> {
+    const [user] = await this.db
+      .select()
+      .from(users)
+      .where(eq(users.passwordResetToken, token));
+    return user || null;
+  }
+
+  async updatePasswordResetToken(id: string, token: string, expiresAt: Date): Promise<User> {
+    const [updatedUser] = await this.db
+      .update(users)
+      .set({ 
+        passwordResetToken: token,
+        passwordResetExpires: expiresAt,
+        updatedAt: new Date() 
+      })
+      .where(eq(users.id, id))
+      .returning();
+
+    if (!updatedUser) {
+      throw new NotFoundException('User not found');
+    }
+
+    return updatedUser;
+  }
+
+  async clearPasswordResetToken(id: string): Promise<User> {
+    const [updatedUser] = await this.db
+      .update(users)
+      .set({ 
+        passwordResetToken: null,
+        passwordResetExpires: null,
+        updatedAt: new Date() 
+      })
+      .where(eq(users.id, id))
+      .returning();
+
+    if (!updatedUser) {
+      throw new NotFoundException('User not found');
+    }
+
+    return updatedUser;
   }
 }

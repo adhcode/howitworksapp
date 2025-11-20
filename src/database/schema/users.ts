@@ -1,6 +1,6 @@
 import { pgTable, uuid, varchar, text, timestamp, boolean, pgEnum } from 'drizzle-orm/pg-core';
 
-export const userRoleEnum = pgEnum('user_role', ['landlord', 'tenant', 'admin']);
+export const userRoleEnum = pgEnum('user_role', ['landlord', 'tenant', 'admin', 'facilitator']);
 
 export const users = pgTable('users', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -19,6 +19,20 @@ export const users = pgTable('users', {
   emailVerificationToken: varchar('email_verification_token', { length: 255 }),
   passwordResetToken: varchar('password_reset_token', { length: 255 }),
   passwordResetExpires: timestamp('password_reset_expires'),
+  
+  // Paystack payment fields (for tenants - recurring payments)
+  paystackAuthorizationCode: varchar('paystack_authorization_code', { length: 255 }),
+  paystackCardLast4: varchar('paystack_card_last4', { length: 4 }),
+  paystackCardBrand: varchar('paystack_card_brand', { length: 50 }),
+  paystackCardBank: varchar('paystack_card_bank', { length: 100 }),
+  
+  // Paystack payout fields (for landlords - cashouts)
+  paystackRecipientCode: varchar('paystack_recipient_code', { length: 255 }),
+  bankAccountName: varchar('bank_account_name', { length: 255 }),
+  bankAccountNumber: varchar('bank_account_number', { length: 20 }),
+  bankCode: varchar('bank_code', { length: 10 }),
+  
+  lastLoginAt: timestamp('last_login_at'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });

@@ -14,7 +14,7 @@ export const payments = pgTable('payments', {
   tenantId: uuid('tenant_id').references(() => users.id).notNull(),
   propertyId: uuid('property_id').references(() => properties.id).notNull(),
   unitId: uuid('unit_id').references(() => units.id).notNull(),
-  tenantInvitationId: uuid('tenant_invitation_id').references(() => tenantInvitations.id).notNull(),
+  tenantInvitationId: uuid('tenant_invitation_id').references(() => tenantInvitations.id),
   
   // Payment details
   amount: decimal('amount', { precision: 10, scale: 2 }).notNull(),
