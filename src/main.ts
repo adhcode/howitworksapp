@@ -3,10 +3,16 @@ import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { Logger, ValidationPipe } from '@nestjs/common';
+import * as crypto from 'crypto';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+
+// Polyfill crypto for Node.js 18+ compatibility with @nestjs/schedule
+if (typeof global.crypto === 'undefined') {
+  (global as any).crypto = crypto;
+}
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
