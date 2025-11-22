@@ -1,7 +1,7 @@
 import { Injectable, Inject, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { eq, and, or, desc, sql } from 'drizzle-orm';
 import * as bcrypt from 'bcryptjs';
-import { randomUUID } from 'crypto';
+import * as crypto from 'crypto';
 import { DATABASE_CONNECTION } from '../database/database.module';
 import { users, properties, messages, maintenanceRequests, units, leases, payments } from '../database/schema';
 import { CreateFacilitatorDto, AssignFacilitatorDto, FacilitatorStatsDto } from './dto/facilitator.dto';
@@ -923,7 +923,7 @@ export class FacilitatorsService {
 
       // Create new comment
       const newComment = {
-        id: randomUUID(),
+        id: crypto.randomUUID(),
         authorId: facilitatorId,
         authorName: `${facilitator.firstName} ${facilitator.lastName}`,
         authorRole: 'facilitator',

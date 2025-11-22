@@ -1,6 +1,6 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { eq, and, count, desc, sql, inArray } from 'drizzle-orm';
-import { randomUUID } from 'crypto';
+import * as crypto from 'crypto';
 import { DATABASE_CONNECTION } from '../database/database.module';
 import { properties, units, tenantInvitations, payments, users, maintenanceRequests } from '../database/schema';
 import { tenantRentContracts, landlordEscrowBalances } from '../database/schema/tenant-rent-contracts';
@@ -884,7 +884,7 @@ export class LandlordService {
 
       // Create new comment
       const newComment = {
-        id: randomUUID(),
+        id: crypto.randomUUID(),
         authorId: landlordId,
         authorName: `${landlord.firstName} ${landlord.lastName}`,
         authorRole: 'landlord',
