@@ -26,7 +26,7 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(registerDto.password, 12);
 
     // Generate email verification token
-    const emailVerificationToken = crypto.randomBytes(32).toString('hex');
+    const emailVerificationToken = randomBytes(32).toString('hex');
 
     // Create user with email verification token
     const user = await this.usersService.create({
@@ -146,7 +146,7 @@ export class AuthService {
     }
 
     // Generate new verification token
-    const emailVerificationToken = crypto.randomBytes(32).toString('hex');
+    const emailVerificationToken = randomBytes(32).toString('hex');
     await this.usersService.updateEmailVerificationToken(user.id, emailVerificationToken);
 
     // Send verification email
@@ -168,7 +168,7 @@ export class AuthService {
 
   async testEmail(email: string, name: string): Promise<{ message: string }> {
     // Generate a test token
-    const testToken = crypto.randomBytes(32).toString('hex');
+    const testToken = randomBytes(32).toString('hex');
     
     try {
       await this.emailService.sendVerificationEmail(email, name, testToken);
@@ -287,7 +287,7 @@ export class AuthService {
     }
 
     // Generate password reset token
-    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetToken = randomBytes(32).toString('hex');
     const resetExpires = new Date(Date.now() + 3600000); // 1 hour from now
 
     // Store reset token
