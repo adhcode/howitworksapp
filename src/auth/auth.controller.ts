@@ -36,6 +36,14 @@ export class AuthController {
     return this.authService.verifyEmail(token);
   }
 
+  @Post('verify-email-code')
+  @ApiOperation({ summary: 'Verify email address with code' })
+  @ApiResponse({ status: 200, description: 'Email verified successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid or expired code' })
+  async verifyEmailWithCode(@Body() body: { email: string; code: string }): Promise<{ message: string }> {
+    return this.authService.verifyEmailWithCode(body.email, body.code);
+  }
+
   @Post('resend-verification')
   @ApiOperation({ summary: 'Resend verification email' })
   @ApiResponse({ status: 200, description: 'Verification email sent' })

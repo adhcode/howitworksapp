@@ -25,23 +25,25 @@ export class AuthService {
     // Hash password
     const hashedPassword = await bcrypt.hash(registerDto.password, 12);
 
-    // Generate email verification token
-    const emailVerificationToken = crypto.randomBytes(32).toString('hex');
+    // Generate 6-digit verification code
+    const emailVerificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const emailVerificationCodeExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
 
-    // Create user with email verification token
+    // Create user with email verification code
     const user = await this.usersService.create({
       ...registerDto,
       password: hashedPassword,
       isEmailVerified: false,
-      emailVerificationToken,
+      emailVerificationCode,
+      emailVerificationCodeExpires,
     });
 
-    // Send verification email
+    // Send verification email with code
     try {
-      await this.emailService.sendVerificationEmail(
+      await this.emailService.sendVerificationCodeEmail(
         user.email,
         user.firstName,
-        emailVerificationToken
+        emailVerificationCode
       );
     } catch (error) {
       console.error('Failed to send verification email:', error);
@@ -49,7 +51,7 @@ export class AuthService {
     }
 
     return {
-      message: 'Registration successful. Please check your email to verify your account.',
+      message: 'Registration successful. Please check your email for the verification code.',
       email: user.email,
     };
   }
@@ -134,6 +136,46 @@ export class AuthService {
     };
   }
 
+  async verifyEmailWithCode(email: string, code: string): Promise<{ message: string }> {
+    const user = await this.usersService.findByEmail(email);
+    
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
+
+    if (user.isEmailVerified) {
+      throw new BadRequestException('Email is already verified');
+    }
+
+    if (!user.emailVerificationCode || !user.emailVerificationCodeExpires) {
+      throw new BadRequestException('No verification code found. Please request a new one.');
+    }
+
+    // Check if code has expired
+    if (user.emailVerificationCodeExpires < new Date()) {
+      throw new BadRequestException('Verification code has expired. Please request a new one.');
+    }
+
+    // Verify the code
+    if (user.emailVerificationCode !== code) {
+      throw new BadRequestException('Invalid verification code');
+    }
+
+    // Update user to mark email as verified
+    await this.usersService.verifyEmail(user.id);
+
+    // Send welcome email
+    try {
+      await this.emailService.sendWelcomeEmail(user.email, user.firstName);
+    } catch (error) {
+      console.error('Failed to send welcome email:', error);
+    }
+
+    return {
+      message: 'Email verified successfully. You can now log in.',
+    };
+  }
+
   async resendVerificationEmail(email: string): Promise<{ message: string }> {
     const user = await this.usersService.findByEmail(email);
     
@@ -145,16 +187,18 @@ export class AuthService {
       throw new BadRequestException('Email is already verified');
     }
 
-    // Generate new verification token
-    const emailVerificationToken = crypto.randomBytes(32).toString('hex');
-    await this.usersService.updateEmailVerificationToken(user.id, emailVerificationToken);
+    // Generate new 6-digit verification code
+    const emailVerificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const emailVerificationCodeExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
 
-    // Send verification email
+    await this.usersService.updateEmailVerificationCode(user.id, emailVerificationCode, emailVerificationCodeExpires);
+
+    // Send verification email with code
     try {
-      await this.emailService.sendVerificationEmail(
+      await this.emailService.sendVerificationCodeEmail(
         user.email,
         user.firstName,
-        emailVerificationToken
+        emailVerificationCode
       );
     } catch (error) {
       console.error('Failed to send verification email:', error);
@@ -162,7 +206,7 @@ export class AuthService {
     }
 
     return {
-      message: 'Verification email sent successfully.',
+      message: 'Verification code sent successfully.',
     };
   }
 

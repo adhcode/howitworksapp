@@ -64,6 +64,8 @@ export class UsersService {
       .set({ 
         isEmailVerified: true, 
         emailVerificationToken: null,
+        emailVerificationCode: null,
+        emailVerificationCodeExpires: null,
         updatedAt: new Date() 
       })
       .where(eq(users.id, id))
@@ -81,6 +83,24 @@ export class UsersService {
       .update(users)
       .set({ 
         emailVerificationToken: token,
+        updatedAt: new Date() 
+      })
+      .where(eq(users.id, id))
+      .returning();
+
+    if (!updatedUser) {
+      throw new NotFoundException('User not found');
+    }
+
+    return updatedUser;
+  }
+
+  async updateEmailVerificationCode(id: string, code: string, expiresAt: Date): Promise<User> {
+    const [updatedUser] = await this.db
+      .update(users)
+      .set({ 
+        emailVerificationCode: code,
+        emailVerificationCodeExpires: expiresAt,
         updatedAt: new Date() 
       })
       .where(eq(users.id, id))

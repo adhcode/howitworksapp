@@ -148,6 +148,129 @@ export class EmailService {
     }
   }
 
+  async sendVerificationCodeEmail(email: string, firstName: string, code: string): Promise<void> {
+    if (!this.resend) {
+      this.logger.warn('Resend not configured. Skipping email send.');
+      return;
+    }
+
+    try {
+      const { data, error } = await this.resend.emails.send({
+        from: this.configService.get('RESEND_FROM_EMAIL', 'HowitWorks <noreply@howitworks.com.ng>'),
+        to: [email],
+        subject: 'Verify Your Email Address - HowitWorks',
+        html: `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Verify Your Email - HowitWorks</title>
+          </head>
+          <body style="margin: 0; padding: 0; background-color: #f5f5f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+            <table role="presentation" style="width: 100%; border-collapse: collapse; background-color: #f5f5f5;">
+              <tr>
+                <td align="center" style="padding: 40px 20px;">
+                  <table role="presentation" style="width: 100%; max-width: 600px; border-collapse: collapse; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+                    
+                    <!-- Header with Navy Blue Background -->
+                    <tr>
+                      <td style="background: linear-gradient(135deg, #1A2A52 0%, #2d4575 100%); padding: 40px 30px; text-align: center;">
+                        <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -0.5px;">
+                          HowitWorks
+                        </h1>
+                        <p style="color: #e0e7ff; margin: 8px 0 0 0; font-size: 14px; font-weight: 400;">
+                          Property Management Made Simple
+                        </p>
+                      </td>
+                    </tr>
+                    
+                    <!-- Content -->
+                    <tr>
+                      <td style="padding: 40px 30px;">
+                        <h2 style="color: #1A2A52; margin: 0 0 20px 0; font-size: 24px; font-weight: 600;">
+                          Welcome, ${firstName}! 👋
+                        </h2>
+                        
+                        <p style="color: #4b5563; line-height: 1.6; margin: 0 0 20px 0; font-size: 16px;">
+                          Thank you for joining HowitWorks! We're excited to have you on board.
+                        </p>
+                        
+                        <p style="color: #4b5563; line-height: 1.6; margin: 0 0 30px 0; font-size: 16px;">
+                          To complete your registration and secure your account, please enter the verification code below in the app:
+                        </p>
+                        
+                        <!-- Verification Code -->
+                        <table role="presentation" style="width: 100%; border-collapse: collapse;">
+                          <tr>
+                            <td align="center" style="padding: 0 0 30px 0;">
+                              <div style="background-color: #f9fafb; border: 2px dashed #1A2A52; border-radius: 12px; padding: 24px; display: inline-block;">
+                                <p style="color: #6b7280; font-size: 14px; margin: 0 0 8px 0; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">
+                                  Your Verification Code
+                                </p>
+                                <p style="color: #1A2A52; font-size: 36px; font-weight: 700; margin: 0; letter-spacing: 8px; font-family: 'Courier New', monospace;">
+                                  ${code}
+                                </p>
+                              </div>
+                            </td>
+                          </tr>
+                        </table>
+                        
+                        <!-- Instructions -->
+                        <div style="background-color: #f9fafb; border-left: 4px solid #1A2A52; padding: 16px; border-radius: 4px; margin: 0 0 30px 0;">
+                          <p style="color: #6b7280; font-size: 13px; margin: 0 0 8px 0; font-weight: 600;">
+                            How to verify:
+                          </p>
+                          <ol style="color: #6b7280; font-size: 13px; margin: 0; padding-left: 20px; line-height: 1.8;">
+                            <li>Open the HowitWorks app</li>
+                            <li>Enter the 6-digit code above</li>
+                            <li>Click "Verify" to complete your registration</li>
+                          </ol>
+                        </div>
+                        
+                        <!-- Security Note -->
+                        <div style="border-top: 1px solid #e5e7eb; padding-top: 20px;">
+                          <p style="color: #9ca3af; font-size: 13px; line-height: 1.5; margin: 0;">
+                            <strong>Security Note:</strong> This verification code will expire in 15 minutes. 
+                            If you didn't create an account with HowitWorks, you can safely ignore this email.
+                          </p>
+                        </div>
+                      </td>
+                    </tr>
+                    
+                    <!-- Footer -->
+                    <tr>
+                      <td style="background-color: #f9fafb; padding: 30px; text-align: center; border-top: 1px solid #e5e7eb;">
+                        <p style="color: #6b7280; font-size: 13px; margin: 0 0 8px 0;">
+                          © 2025 HowitWorks. All rights reserved.
+                        </p>
+                        <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+                          Property Management Platform
+                        </p>
+                      </td>
+                    </tr>
+                    
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </body>
+          </html>
+        `,
+      });
+
+      if (error) {
+        this.logger.error(`Resend API error:`, error);
+        throw new Error(`Failed to send verification email: ${error.message}`);
+      }
+
+      this.logger.log(`Verification code email sent to ${email}. Message ID: ${data?.id}`);
+    } catch (error) {
+      this.logger.error(`Failed to send verification code email to ${email}:`, error);
+      throw error;
+    }
+  }
+
   async sendWelcomeEmail(email: string, firstName: string): Promise<void> {
     if (!this.resend) {
       this.logger.warn('Resend not configured. Skipping email send.');
