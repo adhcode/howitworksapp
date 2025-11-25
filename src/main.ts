@@ -56,13 +56,13 @@ async function bootstrap() {
 
   // Static file serving for uploads
   const uploadsPath = require('path').join(__dirname, '..', 'uploads');
-  
+
   // Create uploads directory if it doesn't exist
   const fs = require('fs');
   if (!fs.existsSync(uploadsPath)) {
     fs.mkdirSync(uploadsPath, { recursive: true });
   }
-  
+
   await app.register(require('@fastify/static'), {
     root: uploadsPath,
     prefix: '/uploads/',
@@ -71,7 +71,7 @@ async function bootstrap() {
   // CORS
   app.enableCors({
     origin: nodeEnv === 'production'
-      ? ['https://homezy-app.com', 'capacitor://localhost', 'ionic://localhost', 'http://localhost', 'http://localhost:3000', 'http://localhost:8100'] // Mobile app origins
+      ? ['https://', 'capacitor://localhost', 'ionic://localhost', 'http://localhost', 'http://localhost:3000', 'http://localhost:8100'] // Mobile app origins
       : true,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],

@@ -565,16 +565,22 @@ export class LandlordService {
           createdAt: maintenanceRequests.createdAt,
           completedAt: maintenanceRequests.completedAt,
           unitId: maintenanceRequests.unitId,
+          tenantId: maintenanceRequests.tenantId,
+          landlordId: maintenanceRequests.landlordId,
           // Property info
           propertyId: properties.id,
           propertyName: properties.name,
           facilitatorId: properties.facilitatorId,
           // Unit info (if maintenance is for specific unit)
           unitNumber: sql<string>`unit.unit_number`,
-          // Reporter info (could be tenant or landlord)
-          reporterFirstName: sql<string>`reporter.first_name`,
-          reporterLastName: sql<string>`reporter.last_name`,
-          reporterRole: sql<string>`reporter.role`,
+          // Tenant reporter info (if reported by tenant)
+          tenantFirstName: sql<string>`tenant.first_name`,
+          tenantLastName: sql<string>`tenant.last_name`,
+          tenantRole: sql<string>`tenant.role`,
+          // Landlord reporter info (if reported by landlord)
+          landlordFirstName: sql<string>`landlord_user.first_name`,
+          landlordLastName: sql<string>`landlord_user.last_name`,
+          landlordRole: sql<string>`landlord_user.role`,
           // Assigned facilitator info (should be property's facilitator)
           facilitatorFirstName: sql<string>`facilitator.first_name`,
           facilitatorLastName: sql<string>`facilitator.last_name`,
@@ -582,7 +588,8 @@ export class LandlordService {
         .from(maintenanceRequests)
         .innerJoin(properties, eq(maintenanceRequests.propertyId, properties.id))
         .leftJoin(sql`units AS unit`, sql`unit.id = ${maintenanceRequests.unitId}`)
-        .leftJoin(sql`users AS reporter`, sql`${maintenanceRequests.tenantId} = reporter.id`)
+        .leftJoin(sql`users AS tenant`, sql`${maintenanceRequests.tenantId} = tenant.id`)
+        .leftJoin(sql`users AS landlord_user`, sql`${maintenanceRequests.landlordId} = landlord_user.id`)
         .leftJoin(sql`users AS facilitator`, sql`${properties.facilitatorId} = facilitator.id`)
         .where(inArray(maintenanceRequests.propertyId, propertyIds));
 
@@ -603,18 +610,35 @@ export class LandlordService {
 
       const requests = await query.orderBy(desc(maintenanceRequests.createdAt));
 
-      return requests.map(request => ({
-        ...request,
-        // Determine who reported it
-        reportedBy: request.reporterRole === 'landlord' ? 'You (Landlord)' : 
-                   request.reporterRole === 'tenant' ? 
-                   `${request.reporterFirstName} ${request.reporterLastName} (Tenant)` : 'Unknown',
-        reporterType: request.reporterRole,
-        // Facilitator info
-        assignedFacilitator: request.facilitatorFirstName ? 
-                           `${request.facilitatorFirstName} ${request.facilitatorLastName}` : 'Not assigned',
-        hasFacilitator: !!request.facilitatorId,
-      }));
+      return requests.map(request => {
+        // Determine who reported it - check if tenantId matches landlordId (landlord reported)
+        let reportedBy = 'Unknown';
+        let reporterType = 'unknown';
+        
+        if (request.tenantId === landlordId) {
+          // Landlord reported this maintenance
+          reportedBy = 'You (Landlord)';
+          reporterType = 'landlord';
+        } else if (request.tenantFirstName && request.tenantLastName) {
+          // Tenant reported this maintenance
+          reportedBy = `${request.tenantFirstName} ${request.tenantLastName} (Tenant)`;
+          reporterType = 'tenant';
+        } else if (request.landlordFirstName && request.landlordLastName) {
+          // Fallback to landlord info
+          reportedBy = `${request.landlordFirstName} ${request.landlordLastName} (Landlord)`;
+          reporterType = 'landlord';
+        }
+        
+        return {
+          ...request,
+          reportedBy,
+          reporterType,
+          // Facilitator info
+          assignedFacilitator: request.facilitatorFirstName ? 
+                             `${request.facilitatorFirstName} ${request.facilitatorLastName}` : 'Not assigned',
+          hasFacilitator: !!request.facilitatorId,
+        };
+      });
     } catch (error) {
       console.error('Error fetching maintenance requests:', error);
       throw error;
