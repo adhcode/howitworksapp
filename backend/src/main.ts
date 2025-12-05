@@ -71,7 +71,16 @@ async function bootstrap() {
   // CORS
   app.enableCors({
     origin: nodeEnv === 'production'
-      ? ['https://', 'capacitor://localhost', 'ionic://localhost', 'http://localhost', 'http://localhost:3000', 'http://localhost:8100'] // Mobile app origins
+      ? [
+          'https://',
+          'capacitor://localhost',
+          'ionic://localhost',
+          'http://localhost',
+          'http://localhost:3000',
+          'http://localhost:3001', // Admin dashboard
+          'http://localhost:8081', // Mobile app
+          'http://localhost:8100',
+        ]
       : true,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],

@@ -60,17 +60,25 @@ export class PaystackService {
   }> {
     try {
       this.logger.log(`💳 Initializing payment: ${data.email} - ₦${data.amount}`);
+      
+      const amountInKobo = Math.round(data.amount * 100);
+      this.logger.log(`💰 Sending to Paystack: ${amountInKobo} kobo (₦${data.amount})`);
 
-      const response = await this.axiosInstance.post('/transaction/initialize', {
+      const payload = {
         email: data.email,
-        amount: Math.round(data.amount * 100), // Convert to kobo
+        amount: amountInKobo, // Convert to kobo
         currency: data.currency || 'NGN',
         reference: data.reference || this.generateReference(),
         callback_url: data.callback_url || this.configService.get('PAYSTACK_CALLBACK_URL'),
         metadata: data.metadata,
-      });
+      };
+
+      this.logger.log(`📤 Payload to Paystack: ${JSON.stringify(payload)}`);
+
+      const response = await this.axiosInstance.post('/transaction/initialize', payload);
 
       this.logger.log(`✅ Payment initialized: ${response.data.data.reference}`);
+      this.logger.log(`📥 Paystack response amount: ${response.data.data.amount}`);
 
       return {
         status: true,
@@ -414,18 +422,31 @@ export class PaystackService {
       code: string;
       active: boolean;
     }>;
+    message?: string;
   }> {
     try {
+      this.logger.log(`🏦 Fetching banks list from Paystack (country: ${country})`);
+      
       const response = await this.axiosInstance.get('/bank', {
         params: { country, perPage: 100 },
       });
+
+      this.logger.log(`✅ Paystack returned ${response.data.data?.length || 0} banks`);
 
       return {
         status: true,
         data: response.data.data,
       };
-    } catch (error) {
-      return { status: false };
+    } catch (error: any) {
+      this.logger.error(`❌ Paystack banks API error: ${error.message}`);
+      if (error.response) {
+        this.logger.error(`   Status: ${error.response.status}`);
+        this.logger.error(`   Data: ${JSON.stringify(error.response.data)}`);
+      }
+      return { 
+        status: false,
+        message: error.message || 'Failed to fetch banks from Paystack'
+      };
     }
   }
 
@@ -445,6 +466,8 @@ export class PaystackService {
     };
   }> {
     try {
+      this.logger.log(`🔍 Resolving account: ${data.account_number} at bank: ${data.bank_code}`);
+      
       const response = await this.axiosInstance.get('/bank/resolve', {
         params: {
           account_number: data.account_number,
@@ -452,11 +475,18 @@ export class PaystackService {
         },
       });
 
+      this.logger.log(`✅ Account resolved: ${response.data.data?.account_name}`);
+
       return {
         status: true,
         data: response.data.data,
       };
-    } catch (error) {
+    } catch (error: any) {
+      this.logger.error(`❌ Account resolution error: ${error.message}`);
+      if (error.response) {
+        this.logger.error(`   Status: ${error.response.status}`);
+        this.logger.error(`   Data: ${JSON.stringify(error.response.data)}`);
+      }
       return {
         status: false,
         message: error.response?.data?.message || error.message,

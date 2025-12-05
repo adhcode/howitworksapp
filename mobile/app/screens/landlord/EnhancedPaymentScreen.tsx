@@ -5,19 +5,30 @@ import {
   ScrollView,
   RefreshControl,
   Text,
-  ActivityIndicator,
   TouchableOpacity,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
 import { apiService } from '../../services/api';
 import colors from '../../theme/colors';
 import { MaterialIcons } from '@expo/vector-icons';
+import { SkeletonLoader } from '../../components/skeletons/SkeletonLoader';
 
 const EnhancedPaymentScreen = () => {
+  const router = useRouter();
   const { isLoading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [withdrawing, setWithdrawing] = useState(false);
   const [paymentData, setPaymentData] = useState({
     walletBalance: 0,
     totalRentCollected: 0,
@@ -64,20 +75,106 @@ const EnhancedPaymentScreen = () => {
     }).format(amount);
   };
 
+  const handleWithdraw = async () => {
+    const amount = parseFloat(withdrawAmount);
+    
+    if (!amount || amount <= 0) {
+      Alert.alert('Invalid Amount', 'Please enter a valid amount');
+      return;
+    }
+
+    if (amount > paymentData.walletBalance) {
+      Alert.alert('Insufficient Balance', 'You don\'t have enough balance');
+      return;
+    }
+
+    // Check if minimum withdrawal amount
+    if (amount < 1000) {
+      Alert.alert('Minimum Amount', 'Minimum withdrawal amount is ₦1,000');
+      return;
+    }
+
+    try {
+      setWithdrawing(true);
+      await apiService.requestWithdrawal(amount, 'Wallet withdrawal');
+      
+      setShowWithdrawModal(false);
+      setWithdrawAmount('');
+      
+      Alert.alert(
+        'Success!',
+        'Withdrawal request submitted successfully. Funds will be transferred to your bank account.',
+        [{ text: 'OK', onPress: () => loadPaymentData() }]
+      );
+    } catch (error: any) {
+      // Check if it's a bank account error
+      if (error.message?.includes('bank account')) {
+        Alert.alert(
+          'No Bank Account',
+          'Please setup your bank account first to receive withdrawals.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { 
+              text: 'Setup Now', 
+              onPress: () => {
+                setShowWithdrawModal(false);
+                router.push('/landlord/setup-bank');
+              }
+            },
+          ]
+        );
+      } else {
+        Alert.alert('Error', error.message || 'Failed to process withdrawal');
+      }
+    } finally {
+      setWithdrawing(false);
+    }
+  };
+
   if (loading || authLoading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.secondary} />
-          <Text style={styles.loadingText}>Loading payments...</Text>
+      <>
+        <SafeAreaView style={styles.container} edges={['top']}>
+          <View style={styles.content}>
+          {/* Header Skeleton */}
+          <View style={styles.header}>
+            <SkeletonLoader width="60%" height={28} style={{ marginBottom: 8 }} />
+            <SkeletonLoader width="80%" height={16} />
+          </View>
+
+          {/* Wallet Card Skeleton */}
+          <View style={styles.walletCard}>
+            <SkeletonLoader width="40%" height={14} style={{ marginBottom: 12 }} />
+            <SkeletonLoader width="60%" height={32} style={{ marginBottom: 20 }} />
+            <SkeletonLoader width="100%" height={44} borderRadius={8} />
+          </View>
+
+          {/* Overview Section Skeleton */}
+          <SkeletonLoader width="40%" height={18} style={{ marginBottom: 16 }} />
+          <View style={styles.overviewGrid}>
+            <SkeletonLoader width="47%" height={100} borderRadius={12} />
+            <SkeletonLoader width="47%" height={100} borderRadius={12} />
+            <SkeletonLoader width="47%" height={100} borderRadius={12} />
+            <SkeletonLoader width="47%" height={100} borderRadius={12} />
+          </View>
+
+          {/* Transactions Skeleton */}
+          <View style={{ marginTop: 24 }}>
+            <SkeletonLoader width="50%" height={18} style={{ marginBottom: 16 }} />
+            <SkeletonLoader width="100%" height={72} style={{ marginBottom: 8 }} borderRadius={12} />
+            <SkeletonLoader width="100%" height={72} style={{ marginBottom: 8 }} borderRadius={12} />
+            <SkeletonLoader width="100%" height={72} borderRadius={12} />
+          </View>
         </View>
-      </SafeAreaView>
+        </SafeAreaView>
+      </>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView
+    <>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -108,10 +205,22 @@ const EnhancedPaymentScreen = () => {
             <Text style={styles.walletAmount}>
               {formatCurrency(paymentData.walletBalance)}
             </Text>
-            <TouchableOpacity style={styles.withdrawButton}>
-              <MaterialIcons name="download" size={20} color="#fff" />
-              <Text style={styles.withdrawButtonText}>Withdraw Funds</Text>
-            </TouchableOpacity>
+            <View style={styles.walletActions}>
+              <TouchableOpacity 
+                style={styles.withdrawButton}
+                onPress={() => setShowWithdrawModal(true)}
+              >
+                <MaterialIcons name="download" size={20} color="#fff" />
+                <Text style={styles.withdrawButtonText}>Withdraw Funds</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.transactionHistoryButton}
+                onPress={() => router.push('/landlord/transaction-history')}
+              >
+                <MaterialIcons name="history" size={20} color={colors.secondary} />
+                <Text style={styles.transactionHistoryButtonText}>History</Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Payment Overview */}
@@ -156,7 +265,7 @@ const EnhancedPaymentScreen = () => {
           <View style={styles.transactionsSection}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Recent Transactions</Text>
-              <TouchableOpacity>
+              <TouchableOpacity onPress={() => router.push('/landlord/transaction-history')}>
                 <Text style={styles.viewAllText}>View All</Text>
               </TouchableOpacity>
             </View>
@@ -199,7 +308,97 @@ const EnhancedPaymentScreen = () => {
           </View>
         </View>
       </ScrollView>
-    </SafeAreaView>
+
+      {/* Withdraw Modal */}
+      <Modal
+        visible={showWithdrawModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowWithdrawModal(false)}
+      >
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <TouchableOpacity 
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={() => {
+              Keyboard.dismiss();
+              setShowWithdrawModal(false);
+            }}
+          >
+            <TouchableOpacity 
+              activeOpacity={1} 
+              onPress={(e) => e.stopPropagation()}
+              style={styles.modalContent}
+            >
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Withdraw Funds</Text>
+                <TouchableOpacity onPress={() => setShowWithdrawModal(false)}>
+                  <MaterialIcons name="close" size={24} color={colors.primary} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.modalBody}>
+                <Text style={styles.availableBalanceText}>
+                  Available: {formatCurrency(paymentData.walletBalance)}
+                </Text>
+
+                <TextInput
+                  style={styles.amountInput}
+                  placeholder="Enter amount"
+                  keyboardType="numeric"
+                  value={withdrawAmount}
+                  onChangeText={setWithdrawAmount}
+                  placeholderTextColor="#999"
+                />
+
+                <View style={styles.quickAmounts}>
+                  {[5000, 10000, 25000, 50000].map((amount) => (
+                    <TouchableOpacity
+                      key={amount}
+                      style={styles.quickAmountButton}
+                      onPress={() => setWithdrawAmount(amount.toString())}
+                    >
+                      <Text style={styles.quickAmountText}>₦{amount.toLocaleString()}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <Text style={styles.minAmountText}>Minimum withdrawal: ₦1,000</Text>
+
+                <TouchableOpacity
+                  style={styles.setupBankButton}
+                  onPress={() => {
+                    setShowWithdrawModal(false);
+                    router.push('/landlord/setup-bank');
+                  }}
+                >
+                  <MaterialIcons name="account-balance" size={16} color={colors.secondary} />
+                  <Text style={styles.setupBankButtonText}>Setup/Change Bank Account</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.withdrawModalButton,
+                    withdrawing && styles.withdrawModalButtonDisabled,
+                  ]}
+                  onPress={handleWithdraw}
+                  disabled={withdrawing}
+                >
+                  <Text style={styles.withdrawModalButtonText}>
+                    {withdrawing ? 'Processing...' : 'Withdraw to Bank Account'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      </SafeAreaView>
+    </>
   );
 };
 
@@ -207,18 +406,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+    paddingTop: 0,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    fontSize: 16,
-    fontFamily: 'Outfit_400Regular',
-    color: colors.text,
-    marginTop: 16,
-  },
+
   scrollView: {
     flex: 1,
   },
@@ -227,11 +417,11 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    padding: 20,
-    paddingTop: 24,
+    padding: 16,
+    paddingTop: 16,
   },
   header: {
-    marginBottom: 24,
+    marginBottom: 16,
   },
   headerTitle: {
     fontSize: 24,
@@ -247,8 +437,8 @@ const styles = StyleSheet.create({
   walletCard: {
     backgroundColor: '#fff',
     borderRadius: 16,
-    padding: 24,
-    marginBottom: 24,
+    padding: 20,
+    marginBottom: 16,
     borderWidth: 1,
     borderColor: '#E1E1E1',
     elevation: 2,
@@ -277,29 +467,50 @@ const styles = StyleSheet.create({
     color: colors.primary,
     marginBottom: 20,
   },
+  walletActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
   withdrawButton: {
+    flex: 2,
     backgroundColor: colors.secondary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 12,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     borderRadius: 8,
-    gap: 8,
+    gap: 6,
   },
   withdrawButtonText: {
     fontSize: 14,
     fontFamily: 'Outfit_600SemiBold',
     color: '#fff',
   },
+  transactionHistoryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.secondary,
+    gap: 6,
+  },
+  transactionHistoryButtonText: {
+    fontSize: 14,
+    fontFamily: 'Outfit_600SemiBold',
+    color: colors.secondary,
+  },
   overviewSection: {
-    marginBottom: 24,
+    marginBottom: 16,
   },
   sectionTitle: {
     fontSize: 18,
     fontFamily: 'Outfit_600SemiBold',
     color: colors.primary,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   overviewGrid: {
     flexDirection: 'row',
@@ -340,13 +551,13 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   transactionsSection: {
-    marginBottom: 24,
+    marginBottom: 16,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   viewAllText: {
     fontSize: 14,
@@ -406,6 +617,110 @@ const styles = StyleSheet.create({
     fontFamily: 'Outfit_400Regular',
     color: '#9CA3AF',
     textAlign: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+    zIndex: 1000,
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingBottom: 40,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontFamily: 'Outfit_600SemiBold',
+    color: colors.primary,
+  },
+  modalBody: {
+    padding: 20,
+  },
+  availableBalanceText: {
+    fontSize: 14,
+    fontFamily: 'Outfit_500Medium',
+    color: '#666',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  amountInput: {
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    fontSize: 24,
+    fontFamily: 'Outfit_600SemiBold',
+    color: colors.primary,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  quickAmounts: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 16,
+  },
+  quickAmountButton: {
+    flex: 1,
+    minWidth: '45%',
+    backgroundColor: '#F8F9FA',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  quickAmountText: {
+    fontSize: 14,
+    fontFamily: 'Outfit_500Medium',
+    color: colors.primary,
+  },
+  minAmountText: {
+    fontSize: 12,
+    fontFamily: 'Outfit_400Regular',
+    color: '#999',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  withdrawModalButton: {
+    backgroundColor: colors.secondary,
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  withdrawModalButtonDisabled: {
+    opacity: 0.6,
+  },
+  withdrawModalButtonText: {
+    fontSize: 16,
+    fontFamily: 'Outfit_600SemiBold',
+    color: '#fff',
+  },
+  setupBankButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.secondary,
+    gap: 8,
+    marginBottom: 12,
+  },
+  setupBankButtonText: {
+    fontSize: 14,
+    fontFamily: 'Outfit_600SemiBold',
+    color: colors.secondary,
   },
 });
 

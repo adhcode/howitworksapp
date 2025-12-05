@@ -50,6 +50,7 @@ const styles = StyleSheet.create({
         height: AVATAR_BELL_SIZE,
         justifyContent: 'center',
         flex: 1,
+        marginLeft: 12,
     },
     hello: {
         fontFamily: 'Outfit_500Medium',

@@ -1,38 +1,50 @@
-import { pgTable, uuid, text, timestamp, boolean, jsonb } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, text, boolean, timestamp, jsonb } from 'drizzle-orm/pg-core';
 import { users } from './users';
+import { relations } from 'drizzle-orm';
 
 export const pushTokens = pgTable('push_tokens', {
   id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  expoPushToken: text('expo_push_token').notNull().unique(),
-  platform: text('platform').notNull(), // 'ios' or 'android'
-  deviceId: text('device_id'),
-  isActive: boolean('is_active').default(true),
-  createdAt: timestamp('created_at').defaultNow(),
-  updatedAt: timestamp('updated_at').defaultNow(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  token: varchar('token', { length: 255 }).unique().notNull(),
+  deviceType: varchar('device_type', { length: 50 }),
+  deviceName: varchar('device_name', { length: 255 }),
+  isActive: boolean('is_active').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  lastUsedAt: timestamp('last_used_at'),
 });
 
-export const notificationPreferences = pgTable('notification_preferences', {
+export const notifications = pgTable('notifications', {
   id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }).unique(),
-  paymentReminders: boolean('payment_reminders').default(true),
-  overdueNotifications: boolean('overdue_notifications').default(true),
-  contractUpdates: boolean('contract_updates').default(true),
-  maintenanceUpdates: boolean('maintenance_updates').default(true),
-  generalNotifications: boolean('general_notifications').default(true),
-  soundEnabled: boolean('sound_enabled').default(true),
-  vibrationEnabled: boolean('vibration_enabled').default(true),
-  createdAt: timestamp('created_at').defaultNow(),
-  updatedAt: timestamp('updated_at').defaultNow(),
-});
-
-export const notificationHistory = pgTable('notification_history', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  title: text('title').notNull(),
-  message: text('message').notNull(),
-  type: text('type').notNull(), // 'payment_reminder', 'maintenance_update', etc.
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  title: varchar('title', { length: 255 }).notNull(),
+  body: text('body').notNull(),
   data: jsonb('data'),
-  read: boolean('read').default(false),
-  sentAt: timestamp('sent_at').defaultNow(),
+  type: varchar('type', { length: 50 }),
+  isRead: boolean('is_read').default(false).notNull(),
+  sentAt: timestamp('sent_at').defaultNow().notNull(),
+  readAt: timestamp('read_at'),
+  pushSent: boolean('push_sent').default(false).notNull(),
+  pushSentAt: timestamp('push_sent_at'),
 });
+
+// Relations
+export const pushTokensRelations = relations(pushTokens, ({ one }) => ({
+  user: one(users, {
+    fields: [pushTokens.userId],
+    references: [users.id],
+  }),
+}));
+
+export const notificationsRelations = relations(notifications, ({ one }) => ({
+  user: one(users, {
+    fields: [notifications.userId],
+    references: [users.id],
+  }),
+}));
+
+// Types
+export type PushToken = typeof pushTokens.$inferSelect;
+export type NewPushToken = typeof pushTokens.$inferInsert;
+export type Notification = typeof notifications.$inferSelect;
+export type NewNotification = typeof notifications.$inferInsert;

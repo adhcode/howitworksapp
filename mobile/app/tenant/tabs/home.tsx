@@ -14,6 +14,7 @@ import { apiService } from '../../services/api';
 import TenantGreetingHeader from '../../components/tenant/TenantGreetingHeader';
 import TenantPaymentCard from '../../components/tenant/TenantPaymentCard';
 import TenantQuickActions from '../../components/tenant/TenantQuickActions';
+import { TenantHomeSkeleton } from '../../components/skeletons';
 
 interface TenantData {
   property: {
@@ -88,10 +89,13 @@ const TenantHomeScreen = () => {
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.secondary} />
-          <Text style={styles.loadingText}>Loading your data...</Text>
-        </View>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <TenantHomeSkeleton />
+        </ScrollView>
       </SafeAreaView>
     );
   }

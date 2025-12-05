@@ -32,6 +32,11 @@ export const payments = pgTable('payments', {
   notes: text('notes'),
   receiptNumber: varchar('receipt_number', { length: 100 }),
   
+  // Payment gateway info
+  paystackReference: varchar('paystack_reference', { length: 255 }),
+  paystackStatus: varchar('paystack_status', { length: 50 }),
+  paymentGateway: varchar('payment_gateway', { length: 50 }).default('paystack'),
+  
   // Tracking
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),

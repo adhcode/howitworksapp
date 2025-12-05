@@ -39,63 +39,52 @@ export default function TenantManagementScreen() {
   const loadProperties = async () => {
     try {
       setError(null);
-      const response = await apiService.getProperties(1, 50);
 
-      if (!response.data || response.data.length === 0) {
+      // Load tenants and properties in parallel
+      const [tenantsResponse, propertiesResponse] = await Promise.all([
+        apiService.getTenantsByLandlord(),
+        apiService.getProperties(1, 50)
+      ]);
+
+      // Extract tenants array
+      const allTenants = Array.isArray(tenantsResponse) ? tenantsResponse : (tenantsResponse.data || []);
+
+      // Extract properties array - API service already extracts nested data
+      const allProperties = Array.isArray(propertiesResponse) ? propertiesResponse : (propertiesResponse.data || []);
+
+      if (allProperties.length === 0) {
         setProperties([]);
         return;
       }
 
-      const propertiesWithTenants = await Promise.all(
-        response.data.map(async (property) => {
-          try {
-            // Get property with units
-            const propertyWithUnits = await apiService.getPropertyWithUnits(property.id);
-            const units = propertyWithUnits.units || [];
+      // Group tenants by property and calculate stats
+      const propertiesWithTenants = allProperties.map((property: any) => {
+        const propertyTenants = allTenants.filter((tenant: any) => tenant.propertyId === property.id);
 
-            // Get tenants for this property
-            const tenantsResponse = await apiService.getTenantsByLandlord().catch(() => ({ data: [] })) as any;
-            const propertyTenants = tenantsResponse.data?.filter((tenant: any) => tenant.propertyId === property.id) || [];
+        // Calculate stats
+        const totalTenants = propertyTenants.length;
+        const activeTenants = propertyTenants.filter((tenant: any) => tenant.status === 'accepted').length;
 
-            // Calculate tenant stats
-            const totalTenants = propertyTenants.length;
-            const activeTenants = propertyTenants.filter((tenant: any) => tenant.status === 'accepted').length;
-            const occupiedUnits = units.filter((unit: any) => !unit.isAvailable).length;
-            const vacantUnits = units.filter((unit: any) => unit.isAvailable).length;
+        // Calculate monthly rent from tenants
+        const monthlyRent = propertyTenants.reduce((total: number, tenant: any) => {
+          return total + (parseFloat(tenant.monthlyRent) || 0);
+        }, 0);
 
-            // Calculate total monthly rent from tenants
-            const monthlyRent = propertyTenants.reduce((total: number, tenant: any) => {
-              return total + (parseFloat(tenant.monthlyRent) || 0);
-            }, 0);
-
-            return {
-              ...property,
-              totalTenants,
-              activeTenants,
-              occupiedUnits,
-              vacantUnits,
-              monthlyRent,
-              tenants: propertyTenants,
-            };
-          } catch (error) {
-            console.error(`Error loading tenants for property ${property.id}:`, error);
-            return {
-              ...property,
-              totalTenants: 0,
-              activeTenants: 0,
-              occupiedUnits: 0,
-              vacantUnits: property.totalUnits,
-              monthlyRent: 0,
-              tenants: [],
-            };
-          }
-        })
-      );
+        return {
+          ...property,
+          totalTenants,
+          activeTenants,
+          occupiedUnits: totalTenants,
+          vacantUnits: Math.max(0, (property.totalUnits || 0) - totalTenants),
+          monthlyRent,
+          tenants: propertyTenants,
+        };
+      });
 
       setProperties(propertiesWithTenants);
     } catch (error: any) {
-      console.error('Error loading properties:', error);
-      setError(error.message || 'Failed to load properties');
+      console.error('Error loading tenant data:', error);
+      setError(error.message || 'Failed to load tenant data');
       setProperties([]);
     } finally {
       setLoading(false);
@@ -138,7 +127,7 @@ export default function TenantManagementScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
@@ -151,7 +140,7 @@ export default function TenantManagementScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -210,6 +199,17 @@ export default function TenantManagementScreen() {
               </TouchableOpacity>
             </View>
           )}
+
+          {/* Debug Info */}
+          <View style={{ backgroundColor: '#f0f0f0', padding: 10, marginBottom: 16, borderRadius: 8 }}>
+            <Text style={{ fontSize: 12, fontFamily: 'Outfit_600SemiBold' }}>Debug Info:</Text>
+            <Text style={{ fontSize: 10, fontFamily: 'Outfit_400Regular' }}>
+              Properties: {properties.length} |
+              Total Tenants: {totalStats.totalTenants} |
+              Loading: {loading ? 'Yes' : 'No'} |
+              Error: {error || 'None'}
+            </Text>
+          </View>
 
           {/* Properties Section */}
           <View style={styles.propertiesSection}>
@@ -330,6 +330,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+    paddingTop: 0,
   },
   scrollView: {
     flex: 1,
@@ -339,7 +340,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    padding: 20,
+    padding: 16,
   },
   loadingContainer: {
     flex: 1,
@@ -352,7 +353,7 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   header: {
-    marginBottom: 24,
+    marginBottom: 16,
   },
   title: {
     fontSize: 24,
@@ -366,7 +367,7 @@ const styles = StyleSheet.create({
     color: '#666666',
   },
   statsOverview: {
-    marginBottom: 24,
+    marginBottom: 16,
   },
   statsRow: {
     flexDirection: 'row',
@@ -408,13 +409,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontFamily: 'Outfit_600SemiBold',
     color: colors.primary,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   propertiesList: {
-    gap: 16,
+    gap: 12,
   },
   propertyCard: {
     backgroundColor: '#fff',
@@ -477,7 +478,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Outfit_500Medium',
   },
   propertyContent: {
-    padding: 20,
+    padding: 16,
   },
   propertyHeader: {
     marginBottom: 12,

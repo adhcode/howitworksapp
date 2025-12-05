@@ -57,12 +57,12 @@ const styles = StyleSheet.create({
     container: {
         width: CONTAINER_WIDTH,
         alignSelf: 'center',
-        marginBottom: 32,
+        marginBottom: 8,
     },
     heading: {
         ...typography.heading,
         color: colors.text,
-        marginBottom: 12,
+        marginBottom: 10,
         fontFamily: 'Outfit_600SemiBold',
         fontSize: 16,
     },
@@ -71,13 +71,11 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         backgroundColor: '#fff',
         borderRadius: 12,
-        paddingVertical: 16,
-        paddingHorizontal: 16,
-        marginBottom: 12,
+        paddingVertical: 12,
+        paddingHorizontal: 14,
+        marginBottom: 8,
         borderWidth: 1,
         borderColor: '#E1E1E1',
-      
-        
     },
     actionRowBorder: {
         borderBottomWidth: 1,

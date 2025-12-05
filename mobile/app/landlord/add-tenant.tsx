@@ -15,7 +15,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import colors from '../theme/colors';
 import Header from '../components/Header';
-import CustomAlert from '../components/CustomAlert';
+import { CustomAlert } from '../components/CustomAlert';
 import { apiService } from '../services/api';
 import { useNotifications } from '../context/NotificationContext';
 
@@ -504,7 +504,7 @@ const AddTenantScreen = () => {
                   mode="date"
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                   onChange={handleMoveInDateChange}
-                  maximumDate={new Date()} // For existing tenants, can't be in future
+                  minimumDate={new Date()}
                 />
               )}
             </View>
@@ -701,7 +701,7 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   generateButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: colors.secondary,
     borderRadius: 12,
     paddingVertical: 18,
     alignItems: 'center',

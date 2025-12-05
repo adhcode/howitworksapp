@@ -15,7 +15,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { Property } from '../types/api';
 import apiService from '../services/api';
 import Header from '../components/Header';
-import CustomAlert from '../components/CustomAlert';
+import { CustomAlert } from '../components/CustomAlert';
 import colors from '../theme/colors';
 import { PropertyDetailsSkeleton } from '../components/skeletons';
 

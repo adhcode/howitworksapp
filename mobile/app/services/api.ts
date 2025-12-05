@@ -3,7 +3,7 @@ import { AuthResponse, HealthResponse, Property, User } from '../types/api';
 // Configuration
 const config = {
   development: {
-    baseURL: 'https://howitworksapp-production.up.railway.app', // Using Railway for development too
+    baseURL: 'http://172.20.10.6:3003', // Local development backend
     timeout: 15000,
     enableLogging: true,
   },
@@ -92,7 +92,12 @@ class ApiService {
 
   // Logging utility
   private log(message: string, data?: any): void {
-    if (this.config.enableLogging) {
+    try {
+      if (this?.config?.enableLogging) {
+        console.log(`[API] ${message}`, data || '');
+      }
+    } catch (e) {
+      // Fallback if this context is lost
       console.log(`[API] ${message}`, data || '');
     }
   }
@@ -153,21 +158,29 @@ class ApiService {
       const response = await fetch(url, config);
       clearTimeout(timeoutId); // Clear timeout on successful response
 
+      console.log(`📡 Response status: ${response.status} ${response.statusText}`);
+
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const errorMessage = errorData.message || `HTTP error! status: ${response.status}`;
-        this.log(`❌ Request failed: ${errorMessage}`);
+        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        try {
+          const errorData = await response.json();
+          console.log('📥 Error response data:', errorData);
+          errorMessage = errorData.message || errorData.error || errorMessage;
+        } catch (e) {
+          console.warn('⚠️ Could not parse error response');
+        }
+        console.error(`❌ Request failed: ${errorMessage}`);
         throw new Error(errorMessage);
       }
 
       const data = await response.json();
-      this.log(`✅ Request successful`, data);
+      console.log(`✅ Request successful:`, data);
 
       // Standardized response extraction
       return this.extractResponseData<T>(data);
     } catch (error: any) {
       clearTimeout(timeoutId); // Clear timeout on error
-      this.log(`💥 Request error: ${error.message}`);
+      console.error(`💥 Request error: ${error.message}`);
 
       // Enhanced error handling
       if (error.name === 'TypeError' && error.message.includes('Network request failed')) {
@@ -238,6 +251,13 @@ class ApiService {
     return this.request<{ message: string }>('/auth/resend-verification', {
       method: 'POST',
       body: JSON.stringify({ email }),
+    });
+  }
+
+  async changePassword(currentPassword: string, newPassword: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>('/auth/change-password', {
+      method: 'PATCH',
+      body: JSON.stringify({ currentPassword, newPassword }),
     });
   }
 
@@ -372,7 +392,168 @@ class ApiService {
   }
 
   async getLandlordPayments(): Promise<any[]> {
-    return this.request<any[]>('/payments/landlord-payments');
+    // Use new wallet transactions endpoint
+    try {
+      const response = await this.request<any>('/payments/wallet/transactions?limit=100');
+      return response.transactions || [];
+    } catch (error) {
+      console.error('Error fetching payments:', error);
+      return [];
+    }
+  }
+
+  // ==========================================
+  // NEW PAYMENT & WALLET ENDPOINTS
+  // ==========================================
+
+  // Wallet Management
+  async getWalletBalance(): Promise<{ balance: number; currency: string }> {
+    return this.request('/payments/wallet/balance');
+  }
+
+  async getWalletTransactions(params?: { page?: number; limit?: number }): Promise<{
+    transactions: any[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    return this.request(`/payments/wallet/transactions?${queryParams.toString()}`);
+  }
+
+  async requestWithdrawal(amount: number, reason?: string): Promise<any> {
+    return this.request('/payments/wallet/withdraw', {
+      method: 'POST',
+      body: JSON.stringify({ amount, reason }),
+    });
+  }
+
+  // Bank Account Management
+  async getBanks(): Promise<{ banks: any[] }> {
+    try {
+      console.log('🌐 API: Fetching banks from /payments/banks');
+      const response = await this.request('/payments/banks');
+      console.log('📥 API: Banks raw response:', JSON.stringify(response, null, 2));
+
+      // The request method already extracts data via extractResponseData
+      // So response is already the data array, not { success: true, data: [...] }
+      if (Array.isArray(response)) {
+        console.log('✅ API: Banks array found:', response.length, 'banks');
+        return { banks: response };
+      } else if (response && typeof response === 'object') {
+        // Fallback: check if it's still wrapped
+        const banks = (response as any).data || response;
+        if (Array.isArray(banks)) {
+          console.log('✅ API: Banks data found:', banks.length, 'banks');
+          return { banks };
+        }
+      }
+
+      console.warn('⚠️ API: Unexpected response format:', response);
+      return { banks: [] };
+    } catch (error: any) {
+      console.error('❌ API: Error fetching banks:', error);
+      throw error;
+    }
+  }
+
+  async getBankAccounts(): Promise<any> {
+    try {
+      console.log('💳 Fetching saved bank accounts...');
+      const response = await this.request('/payments/landlord/bank-accounts', {
+        method: 'GET',
+      });
+      console.log('💳 Bank accounts response:', response);
+      return response;
+    } catch (error: any) {
+      console.error('❌ Error fetching bank accounts:', error);
+      throw error;
+    }
+  }
+
+  async setupBankAccount(bankCode: string, accountNumber: string): Promise<any> {
+    return this.request('/payments/landlord/setup-bank', {
+      method: 'POST',
+      body: JSON.stringify({
+        bank_code: bankCode,
+        account_number: accountNumber
+      }),
+    });
+  }
+
+  async verifyBankAccount(bankCode: string, accountNumber: string): Promise<{
+    accountNumber: string;
+    accountName: string;
+    bankCode: string;
+  }> {
+    try {
+      console.log('🔍 Verifying account:', accountNumber, 'at bank:', bankCode);
+      const response = await this.request('/payments/resolve-account', {
+        method: 'POST',
+        body: JSON.stringify({
+          bank_code: bankCode,
+          account_number: accountNumber
+        }),
+      });
+
+      console.log('📥 Verify response:', JSON.stringify(response, null, 2));
+
+      // Response is already extracted by extractResponseData
+      // It could be the data object directly or still wrapped
+      let accountData = response;
+
+      // Check if it's still wrapped
+      if (response && typeof response === 'object' && 'data' in response) {
+        accountData = (response as any).data;
+      }
+
+      console.log('✅ Account data:', accountData);
+
+      // Convert snake_case to camelCase
+      return {
+        accountName: accountData?.account_name || '',
+        accountNumber: accountData?.account_number || accountNumber,
+        bankCode: accountData?.bank_code || bankCode,
+      };
+    } catch (error: any) {
+      console.error('❌ Verify account error:', error);
+      throw error;
+    }
+  }
+
+  // Payment History
+  async getPaymentHistory(params?: { page?: number; limit?: number }): Promise<{
+    payments: any[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    return this.request(`/payments/history?${queryParams.toString()}`);
+  }
+
+  async getUpcomingPayments(): Promise<{ payments: any[] }> {
+    return this.request('/payments/upcoming');
+  }
+
+  // Landlord Balance & Payouts
+  async getLandlordBalance(): Promise<{ availableBalance: number; currency: string }> {
+    return this.request('/payments/landlord/balance');
+  }
+
+  async getLandlordEscrowBalance(): Promise<{ escrowBalance: number; currency: string }> {
+    return this.request('/payments/landlord/escrow');
+  }
+
+  async requestPayout(amount: number, reason?: string): Promise<any> {
+    return this.request('/payments/landlord/request-payout', {
+      method: 'POST',
+      body: JSON.stringify({ amount, reason }),
+    });
   }
 
   async getLandlordPaymentStats(): Promise<{
@@ -382,49 +563,7 @@ class ApiService {
     pendingPayments: number;
     recentTransactions: any[];
   }> {
-    // For now, we'll calculate stats from the payments data
-    // Later you can create a dedicated endpoint for this
-    const payments = await this.getLandlordPayments();
-    
-    const totalRentCollected = payments
-      .filter(p => p.payment?.status === 'paid')
-      .reduce((sum, p) => sum + parseFloat(p.payment?.amountPaid || '0'), 0);
-    
-    const upcomingPayments = payments
-      .filter(p => {
-        if (p.payment?.status !== 'pending') return false;
-        const dueDate = new Date(p.payment.dueDate);
-        const today = new Date();
-        const nextWeek = new Date();
-        nextWeek.setDate(today.getDate() + 7);
-        return dueDate >= today && dueDate <= nextWeek;
-      }).length;
-    
-    const pendingPayments = payments
-      .filter(p => p.payment?.status === 'pending' || p.payment?.status === 'overdue')
-      .reduce((sum, p) => {
-        const amount = parseFloat(p.payment?.amount || '0');
-        const paid = parseFloat(p.payment?.amountPaid || '0');
-        return sum + (amount - paid);
-      }, 0);
-    
-    const recentTransactions = payments
-      .filter(p => p.payment?.status === 'paid')
-      .slice(0, 5)
-      .map(p => ({
-        type: 'credit',
-        description: `Rent from ${p.property?.name || 'Property'} - ${p.unit?.unitNumber || 'Unit'}`,
-        amount: parseFloat(p.payment?.amountPaid || '0'),
-        date: p.payment?.paidDate || p.payment?.createdAt,
-      }));
-    
-    return {
-      walletBalance: totalRentCollected * 0.95, // Assume 5% is withdrawn
-      totalRentCollected,
-      upcomingPayments,
-      pendingPayments,
-      recentTransactions,
-    };
+    return this.request('/payments/landlord/stats');
   }
 
   async getCurrentUser(): Promise<User> {
@@ -707,9 +846,9 @@ class ApiService {
   }
 
   // Maintenance requests endpoints (updated with comprehensive API)
-  async createMaintenanceRequest(requestData: { 
-    title: string; 
-    description: string; 
+  async createMaintenanceRequest(requestData: {
+    title: string;
+    description: string;
     priority?: string;
     images?: string[];
   }) {
@@ -765,9 +904,23 @@ class ApiService {
   }
 
   async addMaintenanceComment(id: string, comment: string) {
-    return this.request(`/landlord/maintenance/${id}/comment`, {
+    return this.request(`/maintenance/requests/${id}/comments`, {
       method: 'POST',
       body: JSON.stringify({ comment }),
+    });
+  }
+
+  async updateMaintenanceStatus(id: string, status: string, notes?: string) {
+    return this.request(`/maintenance/requests/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status, notes }),
+    });
+  }
+
+  async updateMaintenancePriority(id: string, priority: string, notes?: string) {
+    return this.request(`/maintenance/requests/${id}/priority`, {
+      method: 'PATCH',
+      body: JSON.stringify({ priority, notes }),
     });
   }
 
@@ -814,6 +967,28 @@ class ApiService {
       method: 'POST',
       body: JSON.stringify({ reference }),
     });
+  }
+
+  // Push Notifications
+  async registerPushToken(token: string, deviceInfo?: { platform: string; deviceName: string }) {
+    return this.request('/notifications/register-token', {
+      method: 'POST',
+      body: JSON.stringify({ token, deviceInfo }),
+    });
+  }
+
+  async getNotifications(limit = 50) {
+    return this.request(`/notifications?limit=${limit}`);
+  }
+
+  async markNotificationAsRead(notificationId: string) {
+    return this.request(`/notifications/${notificationId}/read`, {
+      method: 'PATCH',
+    });
+  }
+
+  async getUnreadNotificationCount() {
+    return this.request('/notifications/unread-count');
   }
 
   // Health check

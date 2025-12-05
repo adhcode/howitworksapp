@@ -1,24 +1,30 @@
 import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { propertiesApi, facilitatorsApi } from '../lib/api'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { adminApi, facilitatorApi } from '../lib/api'
+import { useAuthStore } from '../store/authStore'
 import { Home, MapPin, Users, AlertCircle } from 'lucide-react'
-import { formatCurrency } from '../lib/utils'
+// import { formatCurrency } from '../lib/utils'
 import AssignFacilitatorModal from '../components/properties/AssignFacilitatorModal'
 
 export default function Properties() {
   const queryClient = useQueryClient()
+  const { user } = useAuthStore()
+  const isFacilitator = user?.role === 'facilitator'
   const [selectedProperty, setSelectedProperty] = useState<any>(null)
   const [showAssignModal, setShowAssignModal] = useState(false)
   const [filter, setFilter] = useState<'all' | 'assigned' | 'unassigned'>('all')
 
   const { data: propertiesData, isLoading } = useQuery({
-    queryKey: ['properties'],
-    queryFn: () => propertiesApi.getAll(1, 100),
+    queryKey: ['properties', isFacilitator ? user?.id : 'all'],
+    queryFn: () => isFacilitator 
+      ? facilitatorApi.getMyProperties(user?.id || '')
+      : adminApi.getProperties(1, 100),
   })
 
   const { data: facilitatorsData } = useQuery({
     queryKey: ['facilitators'],
-    queryFn: facilitatorsApi.getAll,
+    queryFn: adminApi.getFacilitators,
+    enabled: !isFacilitator, // Only fetch for admins
   })
 
   const properties = propertiesData?.data || []
@@ -52,31 +58,35 @@ export default function Properties() {
     <div>
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Properties</h1>
-          <p className="text-gray-600 mt-2">Manage properties and facilitator assignments</p>
+          <h1 className="text-3xl font-bold text-gray-900">{isFacilitator ? 'My Properties' : 'Properties'}</h1>
+          <p className="text-gray-600 mt-2">
+            {isFacilitator ? 'Properties assigned to you' : 'Manage properties and facilitator assignments'}
+          </p>
         </div>
       </div>
 
-      {/* Filter Tabs */}
-      <div className="flex space-x-2 mb-6">
-        {[
-          { key: 'all', label: 'All Properties' },
-          { key: 'assigned', label: 'Assigned' },
-          { key: 'unassigned', label: 'Unassigned' },
-        ].map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setFilter(tab.key as any)}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              filter === tab.key
-                ? 'bg-primary-600 text-white'
-                : 'bg-white text-gray-700 hover:bg-gray-100'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      {/* Filter Tabs - Only show for admins */}
+      {!isFacilitator && (
+        <div className="flex space-x-2 mb-6">
+          {[
+            { key: 'all', label: 'All Properties' },
+            { key: 'assigned', label: 'Assigned' },
+            { key: 'unassigned', label: 'Unassigned' },
+          ].map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setFilter(tab.key as any)}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                filter === tab.key
+                  ? 'bg-primary-600 text-white'
+                  : 'bg-white text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -160,14 +170,16 @@ export default function Properties() {
                         {getFacilitatorName(property.facilitatorId)}
                       </p>
                     </div>
-                    <button
-                      onClick={() => handleAssignFacilitator(property)}
-                      className="text-sm text-primary-600 hover:text-primary-700 font-medium"
-                    >
-                      Change
-                    </button>
+                    {!isFacilitator && (
+                      <button
+                        onClick={() => handleAssignFacilitator(property)}
+                        className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+                      >
+                        Change
+                      </button>
+                    )}
                   </div>
-                ) : (
+                ) : !isFacilitator ? (
                   <button
                     onClick={() => handleAssignFacilitator(property)}
                     className="w-full flex items-center justify-center px-4 py-2 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 transition-colors"
@@ -175,7 +187,7 @@ export default function Properties() {
                     <AlertCircle className="w-4 h-4 mr-2" />
                     Assign Facilitator
                   </button>
-                )}
+                ) : null}
               </div>
             </div>
           </div>

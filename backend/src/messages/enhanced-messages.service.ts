@@ -14,10 +14,15 @@ import { users } from '../database/schema/users';
 import { properties } from '../database/schema/properties';
 import { tenantInvitations } from '../database/schema/tenant-invitations';
 import { eq, or, and, desc, asc } from 'drizzle-orm';
+import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationType } from '../notifications/dto/notification.dto';
 
 @Injectable()
 export class EnhancedMessagesService {
-  constructor(@Inject(DATABASE_CONNECTION) private readonly db: any) {}
+  constructor(
+    @Inject(DATABASE_CONNECTION) private readonly db: any,
+    private readonly notificationsService: NotificationsService
+  ) {}
 
   /**
    * Create a message with facilitator routing
@@ -153,6 +158,33 @@ export class EnhancedMessagesService {
       const [request] = await this.db.insert(maintenanceRequests).values(requestData).returning();
 
       console.log(`Maintenance request created and assigned to ${facilitatorId ? 'facilitator' : 'landlord'}: ${assignedTo}`);
+      
+      // Send notification to assigned person
+      try {
+        const [tenant] = await this.db
+          .select({ firstName: users.firstName, lastName: users.lastName })
+          .from(users)
+          .where(eq(users.id, tenantId));
+
+        const tenantName = tenant ? `${tenant.firstName} ${tenant.lastName}` : 'A tenant';
+        const priorityEmoji = requestData.priority === 'urgent' ? '🚨 ' : requestData.priority === 'high' ? '⚠️ ' : '';
+
+        await this.notificationsService.sendNotification(
+          assignedTo,
+          `${priorityEmoji}New Maintenance Request`,
+          `${tenantName} reported: ${requestData.title}`,
+          {
+            type: 'maintenance',
+            id: request.id,
+            screen: 'MaintenanceDetail',
+            priority: requestData.priority,
+          },
+          NotificationType.MAINTENANCE
+        );
+      } catch (error) {
+        console.error('Error sending maintenance notification:', error);
+        // Don't fail the request if notification fails
+      }
       
       return request;
     } catch (error) {
@@ -355,9 +387,97 @@ export class EnhancedMessagesService {
         });
       }
 
+      // Send push notification to tenant
+      try {
+        const statusEmoji = status === 'completed' ? '✅ ' : status === 'in_progress' ? '🔧 ' : '📋 ';
+        const statusText = status.replace('_', ' ').toUpperCase();
+
+        await this.notificationsService.sendNotification(
+          request.tenantId,
+          `${statusEmoji}Maintenance Update`,
+          `Your request "${request.title}" is now ${statusText}`,
+          {
+            type: 'maintenance',
+            id: requestId,
+            screen: 'MaintenanceDetail',
+            status,
+          },
+          NotificationType.MAINTENANCE
+        );
+      } catch (error) {
+        console.error('Error sending status update notification:', error);
+      }
+
       return updatedRequest;
     } catch (error) {
       console.error('Error updating maintenance request status:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update maintenance request priority
+   */
+  async updateMaintenanceRequestPriority(
+    requestId: string, 
+    priority: string, 
+    userId: string,
+    notes?: string
+  ) {
+    try {
+      // Get the request
+      const [request] = await this.db
+        .select()
+        .from(maintenanceRequests)
+        .where(eq(maintenanceRequests.id, requestId));
+
+      if (!request) {
+        throw new NotFoundException('Maintenance request not found');
+      }
+
+      // Update the priority
+      const [updatedRequest] = await this.db
+        .update(maintenanceRequests)
+        .set({
+          priority,
+          updatedAt: new Date(),
+        })
+        .where(eq(maintenanceRequests.id, requestId))
+        .returning();
+
+      // Send notification to tenant about priority change
+      if (notes) {
+        await this.db.insert(messages).values({
+          senderId: userId,
+          receiverId: request.tenantId,
+          subject: `Maintenance Request Priority Updated: ${request.title}`,
+          content: `The priority of your maintenance request has been updated to "${priority}". ${notes}`,
+        });
+      }
+
+      // Send push notification to tenant
+      try {
+        const priorityEmoji = priority === 'urgent' ? '🚨 ' : priority === 'high' ? '⚠️ ' : priority === 'medium' ? '📋 ' : '✅ ';
+
+        await this.notificationsService.sendNotification(
+          request.tenantId,
+          `${priorityEmoji}Priority Updated`,
+          `Your request "${request.title}" priority changed to ${priority.toUpperCase()}`,
+          {
+            type: 'maintenance',
+            id: requestId,
+            screen: 'MaintenanceDetail',
+            priority,
+          },
+          NotificationType.MAINTENANCE
+        );
+      } catch (error) {
+        console.error('Error sending priority update notification:', error);
+      }
+
+      return updatedRequest;
+    } catch (error) {
+      console.error('Error updating maintenance request priority:', error);
       throw error;
     }
   }
@@ -399,6 +519,205 @@ export class EnhancedMessagesService {
     } catch (error) {
       console.error('Error getting tenant property facilitator:', error);
       return null;
+    }
+  }
+
+  /**
+   * Add comment to maintenance request
+   */
+  async addMaintenanceComment(
+    requestId: string,
+    userId: string,
+    comment: string
+  ) {
+    try {
+      // Get the request to find tenant and assigned person
+      const [request] = await this.db
+        .select()
+        .from(maintenanceRequests)
+        .where(eq(maintenanceRequests.id, requestId));
+
+      if (!request) {
+        throw new NotFoundException('Maintenance request not found');
+      }
+
+      // Get user info
+      const [user] = await this.db
+        .select()
+        .from(users)
+        .where(eq(users.id, userId));
+
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+
+      // Determine receiver based on who is commenting
+      let receiverId: string;
+      if (userId === request.tenantId) {
+        // Tenant commenting - send to assigned person (facilitator or landlord)
+        receiverId = request.assignedTo;
+      } else {
+        // Landlord/facilitator commenting - send to tenant
+        receiverId = request.tenantId;
+      }
+
+      // Create message as comment
+      await this.db.insert(messages).values({
+        senderId: userId,
+        receiverId,
+        subject: `Comment on: ${request.title}`,
+        content: comment,
+      });
+
+      // Send push notification
+      try {
+        await this.notificationsService.sendNotification(
+          receiverId,
+          `💬 New Comment`,
+          `${user.firstName} ${user.lastName}: ${comment.substring(0, 100)}${comment.length > 100 ? '...' : ''}`,
+          {
+            type: 'maintenance',
+            id: requestId,
+            screen: 'MaintenanceDetail',
+          },
+          NotificationType.MAINTENANCE
+        );
+      } catch (error) {
+        console.error('Error sending comment notification:', error);
+      }
+
+      return {
+        success: true,
+        message: 'Comment added successfully',
+        comment: {
+          userId,
+          userName: `${user.firstName} ${user.lastName}`,
+          comment,
+          createdAt: new Date(),
+        },
+      };
+    } catch (error) {
+      console.error('Error adding maintenance comment:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get maintenance request with full details including comments
+   */
+  async getMaintenanceRequestById(requestId: string, userId: string) {
+    try {
+      const [request] = await this.db
+        .select({
+          id: maintenanceRequests.id,
+          title: maintenanceRequests.title,
+          description: maintenanceRequests.description,
+          priority: maintenanceRequests.priority,
+          status: maintenanceRequests.status,
+          images: maintenanceRequests.images,
+          createdAt: maintenanceRequests.createdAt,
+          updatedAt: maintenanceRequests.updatedAt,
+          completedAt: maintenanceRequests.completedAt,
+          tenantId: maintenanceRequests.tenantId,
+          landlordId: maintenanceRequests.landlordId,
+          assignedTo: maintenanceRequests.assignedTo,
+          propertyId: maintenanceRequests.propertyId,
+          tenantFirstName: users.firstName,
+          tenantLastName: users.lastName,
+          propertyName: properties.name,
+          propertyAddress: properties.address,
+        })
+        .from(maintenanceRequests)
+        .leftJoin(users, eq(users.id, maintenanceRequests.tenantId))
+        .leftJoin(properties, eq(properties.id, maintenanceRequests.propertyId))
+        .where(eq(maintenanceRequests.id, requestId));
+
+      if (!request) {
+        throw new NotFoundException('Maintenance request not found');
+      }
+
+      // Get property facilitator details (only show if property has facilitator)
+      let assignedToDetails: { name: string; role: any } | null = null;
+      const [propertyDetails] = await this.db
+        .select({
+          facilitatorId: properties.facilitatorId,
+        })
+        .from(properties)
+        .where(eq(properties.id, request.propertyId));
+
+      // Only set assignedToDetails if property has a facilitator
+      if (propertyDetails?.facilitatorId) {
+        const [facilitator] = await this.db
+          .select({
+            firstName: users.firstName,
+            lastName: users.lastName,
+            role: users.role,
+          })
+          .from(users)
+          .where(eq(users.id, propertyDetails.facilitatorId));
+
+        if (facilitator) {
+          assignedToDetails = {
+            name: `${facilitator.firstName} ${facilitator.lastName}`,
+            role: facilitator.role,
+          };
+        }
+      }
+
+      // Get comments (messages related to this maintenance request)
+      // Comments are messages with subject containing the request title
+      const relatedMessages = await this.db
+        .select({
+          id: messages.id,
+          content: messages.content,
+          createdAt: messages.createdAt,
+          senderId: messages.senderId,
+          senderFirstName: users.firstName,
+          senderLastName: users.lastName,
+        })
+        .from(messages)
+        .leftJoin(users, eq(users.id, messages.senderId))
+        .where(
+          or(
+            and(
+              eq(messages.senderId, request.tenantId),
+              eq(messages.receiverId, request.assignedTo)
+            ),
+            and(
+              eq(messages.senderId, request.assignedTo),
+              eq(messages.receiverId, request.tenantId)
+            )
+          )
+        )
+        .orderBy(asc(messages.createdAt));
+
+      const comments = relatedMessages
+        .filter(msg => msg.content && msg.content.trim().length > 0)
+        .map(msg => ({
+          id: msg.id,
+          comment: msg.content,
+          author: `${msg.senderFirstName} ${msg.senderLastName}`,
+          authorName: `${msg.senderFirstName} ${msg.senderLastName}`,
+          userName: `${msg.senderFirstName} ${msg.senderLastName}`,
+          createdAt: msg.createdAt,
+        }));
+
+      return {
+        ...request,
+        tenant: {
+          firstName: request.tenantFirstName,
+          lastName: request.tenantLastName,
+        },
+        property: {
+          name: request.propertyName,
+          address: request.propertyAddress,
+        },
+        assignedToDetails,
+        comments,
+      };
+    } catch (error) {
+      console.error('Error getting maintenance request by ID:', error);
+      throw error;
     }
   }
 }

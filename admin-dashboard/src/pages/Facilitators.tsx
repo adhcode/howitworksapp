@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { facilitatorsApi } from '../lib/api'
-import { Plus, Edit, Trash2, Eye } from 'lucide-react'
+import { adminApi, facilitatorsApi } from '../lib/api'
+import { Plus, Trash2, Eye, Users } from 'lucide-react'
 import CreateFacilitatorModal from '../components/facilitators/CreateFacilitatorModal'
 import FacilitatorDetailsModal from '../components/facilitators/FacilitatorDetailsModal'
 
@@ -13,7 +13,7 @@ export default function Facilitators() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['facilitators'],
-    queryFn: facilitatorsApi.getAll,
+    queryFn: adminApi.getFacilitators,
   })
 
   const deleteMutation = useMutation({

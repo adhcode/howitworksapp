@@ -1,19 +1,22 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { maintenanceApi } from '../lib/api'
+import { adminApi } from '../lib/api'
+import { useAuthStore } from '../store/authStore'
 import { Wrench, AlertCircle, Clock, CheckCircle, XCircle } from 'lucide-react'
 import { formatRelativeTime } from '../lib/utils'
 import MaintenanceDetailsModal from '../components/maintenance/MaintenanceDetailsModal'
 
 export default function Maintenance() {
+  const { user } = useAuthStore()
+  const isFacilitator = user?.role === 'facilitator'
   const [selectedRequest, setSelectedRequest] = useState<any>(null)
   const [showDetailsModal, setShowDetailsModal] = useState(false)
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [priorityFilter, setPriorityFilter] = useState<string>('all')
 
   const { data, isLoading } = useQuery({
-    queryKey: ['maintenance', statusFilter, priorityFilter],
-    queryFn: () => maintenanceApi.getAll({
+    queryKey: ['maintenance', statusFilter, priorityFilter, isFacilitator ? user?.id : 'all'],
+    queryFn: () => adminApi.getMaintenance({
       status: statusFilter !== 'all' ? statusFilter : undefined,
       priority: priorityFilter !== 'all' ? priorityFilter : undefined,
     }),

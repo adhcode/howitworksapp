@@ -6,7 +6,7 @@ import {
   ScrollView,
   SafeAreaView,
   TouchableOpacity,
-  ActivityIndicator,
+  RefreshControl,
   TextInput,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -14,11 +14,13 @@ import { useRouter } from 'expo-router';
 import colors from '../../theme/colors';
 import { apiService } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import { ReportsSkeleton } from '../../components/skeletons';
 
 const TenantReportsScreen = () => {
   const router = useRouter();
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [complaints, setComplaints] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -46,63 +48,26 @@ const TenantReportsScreen = () => {
     try {
       setLoading(true);
 
-      // Try to get actual maintenance requests from backend
-      try {
-        const response = await apiService.getMaintenanceRequests();
-        const formattedComplaints = Array.isArray(response) ? response.map((request: any) => ({
-          id: request.id,
-          title: request.title,
-          description: request.description,
-          date: new Date(request.createdAt).toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric'
-          }),
-          status: request.status || 'pending',
-          statusColor: getStatusColor(request.status || 'pending'),
-          priority: request.priority,
-          images: request.images,
-          createdAt: request.createdAt,
-        })) : [];
-        console.log('🔍 Formatted complaints:', formattedComplaints);
-        setComplaints(formattedComplaints);
-      } catch (apiError) {
-        console.log('API not available, using mock data:', apiError);
-        // Fallback to mock data if API is not available
-        setComplaints([
-          {
-            id: '1',
-            title: 'Generator Not Working',
-            date: 'May 5, 2025',
-            status: 'In Progress',
-            statusColor: colors.secondary,
-          },
-          {
-            id: '2',
-            title: 'Leaking Kitchen Tap',
-            date: 'May 6, 2025',
-            status: 'Pending',
-            statusColor: '#FFA500',
-          },
-          {
-            id: '3',
-            title: 'Leaking Kitchen Tap',
-            date: 'May 5, 2025',
-            status: 'Resolved',
-            statusColor: '#4CAF50',
-          },
-          {
-            id: '4',
-            title: 'Leaking Kitchen Tap',
-            date: 'May 5, 2025',
-            status: 'Resolved',
-            statusColor: '#4CAF50',
-          },
-        ]);
-      }
+      const response = await apiService.getMaintenanceRequests();
+      const formattedComplaints = Array.isArray(response) ? response.map((request: any) => ({
+        id: request.id,
+        title: request.title,
+        description: request.description,
+        date: new Date(request.createdAt).toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric'
+        }),
+        status: request.status || 'pending',
+        statusColor: getStatusColor(request.status || 'pending'),
+        priority: request.priority,
+        images: request.images,
+        createdAt: request.createdAt,
+      })) : [];
+      console.log('🔍 Loaded maintenance requests:', formattedComplaints.length);
+      setComplaints(formattedComplaints);
     } catch (error) {
       console.error('Error loading complaints:', error);
-      // Ensure complaints is always an array even if there's an error
       setComplaints([]);
     } finally {
       setLoading(false);
@@ -117,6 +82,12 @@ const TenantReportsScreen = () => {
     router.push(`/tenant-screens/complaint-detail?id=${complaintId}`);
   };
 
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadComplaints();
+    setRefreshing(false);
+  };
+
   const filteredComplaints = (complaints || []).filter(complaint =>
     complaint?.title?.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -124,10 +95,13 @@ const TenantReportsScreen = () => {
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.secondary} />
-          <Text style={styles.loadingText}>Loading reports...</Text>
-        </View>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <ReportsSkeleton />
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -138,6 +112,14 @@ const TenantReportsScreen = () => {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.secondary}
+            colors={[colors.secondary]}
+          />
+        }
       >
         <View style={styles.content}>
           {/* Header */}
@@ -213,17 +195,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    fontSize: 16,
-    fontFamily: 'Outfit_400Regular',
-    color: colors.text,
-    marginTop: 16,
-  },
+
   scrollView: {
     flex: 1,
   },

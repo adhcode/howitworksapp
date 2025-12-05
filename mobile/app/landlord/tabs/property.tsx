@@ -162,7 +162,7 @@ const PropertyScreen = () => {
   // Show loading state while checking authentication
   if (authLoading || (loading && !error)) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
@@ -185,7 +185,7 @@ const PropertyScreen = () => {
 
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -329,6 +329,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+    paddingTop: 0,
   },
   scrollView: {
     flex: 1,
@@ -338,7 +339,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    padding: 20,
+    padding: 16,
   },
   loadingContainer: {
     flex: 1,
@@ -354,7 +355,7 @@ const styles = StyleSheet.create({
   },
 
   header: {
-    marginBottom: 24,
+    marginBottom: 16,
   },
   title: {
     fontSize: 24,
@@ -370,12 +371,12 @@ const styles = StyleSheet.create({
   addButton: {
     backgroundColor: colors.secondary,
     borderRadius: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 24,
+    marginBottom: 16,
     shadowColor: colors.secondary,
     shadowOffset: {
       width: 0,
@@ -395,13 +396,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontFamily: 'Outfit_600SemiBold',
     color: colors.primary,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   propertiesList: {
-    gap: 16,
+    gap: 12,
   },
   propertyCard: {
     backgroundColor: '#fff',
@@ -451,7 +452,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Outfit_500Medium',
   },
   propertyContent: {
-    padding: 20,
+    padding: 16,
   },
   propertyHeader: {
     marginBottom: 12,

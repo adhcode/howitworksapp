@@ -31,7 +31,7 @@ export class MaintenanceController {
   @Roles(UserRole.TENANT)
   @ApiOperation({ summary: 'Create a maintenance request (routes to facilitator if assigned)' })
   @ApiResponse({ status: 201, description: 'Maintenance request created successfully' })
-  async createRequest(@Request() req, @Body() createMaintenanceRequestDto: CreateMaintenanceRequestDto) {
+  async createRequest(@Request() req: any, @Body() createMaintenanceRequestDto: CreateMaintenanceRequestDto) {
     return this.enhancedMessagesService.createMaintenanceRequestWithRouting(req.user.id, createMaintenanceRequestDto);
   }
 
@@ -39,7 +39,7 @@ export class MaintenanceController {
   @Roles(UserRole.TENANT, UserRole.LANDLORD, UserRole.FACILITATOR)
   @ApiOperation({ summary: 'Get maintenance requests' })
   @ApiResponse({ status: 200, description: 'Maintenance requests retrieved successfully' })
-  async getRequests(@Request() req) {
+  async getRequests(@Request() req: any) {
     if (req.user.role === 'facilitator') {
       return this.enhancedMessagesService.getFacilitatorMaintenanceRequests(req.user.id);
     }
@@ -49,9 +49,8 @@ export class MaintenanceController {
   @Get('requests/:id')
   @ApiOperation({ summary: 'Get a specific maintenance request' })
   @ApiResponse({ status: 200, description: 'Maintenance request retrieved successfully' })
-  async getRequest(@Request() req, @Param('id') id: string) {
-    // Implementation for getting specific maintenance request
-    return { id, message: 'Get specific maintenance request - to be implemented' };
+  async getRequest(@Request() req: any, @Param('id') id: string) {
+    return this.enhancedMessagesService.getMaintenanceRequestById(id, req.user.id);
   }
 
   @Patch('requests/:id/status')
@@ -59,19 +58,44 @@ export class MaintenanceController {
   @ApiOperation({ summary: 'Update maintenance request status' })
   @ApiResponse({ status: 200, description: 'Status updated successfully' })
   async updateStatus(
-    @Request() req, 
+    @Request() req: any, 
     @Param('id') id: string, 
     @Body() updateDto: { status: string; notes?: string }
   ) {
-    if (req.user.role === 'facilitator') {
-      return this.enhancedMessagesService.updateMaintenanceRequestStatus(
-        id, 
-        updateDto.status, 
-        req.user.id,
-        updateDto.notes
-      );
-    }
-    // For landlords, use existing service (to be enhanced later if needed)
-    return { id, status: updateDto.status, message: 'Landlord status update - to be implemented' };
+    return this.enhancedMessagesService.updateMaintenanceRequestStatus(
+      id, 
+      updateDto.status, 
+      req.user.id,
+      updateDto.notes
+    );
+  }
+
+  @Patch('requests/:id/priority')
+  @Roles(UserRole.LANDLORD, UserRole.FACILITATOR)
+  @ApiOperation({ summary: 'Update maintenance request priority' })
+  @ApiResponse({ status: 200, description: 'Priority updated successfully' })
+  async updatePriority(
+    @Request() req: any, 
+    @Param('id') id: string, 
+    @Body() updateDto: { priority: string; notes?: string }
+  ) {
+    return this.enhancedMessagesService.updateMaintenanceRequestPriority(
+      id, 
+      updateDto.priority, 
+      req.user.id,
+      updateDto.notes
+    );
+  }
+
+  @Post('requests/:id/comments')
+  @Roles(UserRole.TENANT, UserRole.LANDLORD, UserRole.FACILITATOR)
+  @ApiOperation({ summary: 'Add comment to maintenance request' })
+  @ApiResponse({ status: 201, description: 'Comment added successfully' })
+  async addComment(
+    @Request() req: any, 
+    @Param('id') id: string, 
+    @Body() commentDto: { comment: string }
+  ) {
+    return this.enhancedMessagesService.addMaintenanceComment(id, req.user.id, commentDto.comment);
   }
 } 

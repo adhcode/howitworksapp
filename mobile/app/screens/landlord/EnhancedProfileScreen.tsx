@@ -54,39 +54,25 @@ const EnhancedProfileScreen = () => {
     );
   };
 
-  const handleChangePassword = () => {
-    Alert.alert(
-      'Change Password',
-      'This feature will be available soon. You can reset your password from the login screen.',
-      [{ text: 'OK' }]
-    );
-  };
 
-  const handleHelpSupport = () => {
-    Alert.alert(
-      'Help & Support',
-      'Need help? Contact us at:\n\nEmail: support@homezy.com\nPhone: +234 800 123 4567\n\nWe\'re here to help you 24/7!',
-      [{ text: 'OK' }]
-    );
-  };
 
   const menuItems = [
     {
       icon: 'help',
       title: 'Help & Support',
       subtitle: 'Get help and contact support',
-      onPress: handleHelpSupport,
+      onPress: () => router.push('/landlord/help-support'),
     },
     {
       icon: 'lock',
       title: 'Change Password',
       subtitle: 'Update your account password',
-      onPress: handleChangePassword,
+      onPress: () => router.push('/landlord/change-password'),
     },
   ];
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -180,6 +166,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+    paddingTop: 0,
   },
   scrollView: {
     flex: 1,
@@ -189,11 +176,11 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    padding: 20,
-    paddingTop: 24,
+    padding: 16,
+    paddingTop: 16,
   },
   header: {
-    marginBottom: 24,
+    marginBottom: 16,
   },
   headerTitle: {
     fontSize: 24,
@@ -209,8 +196,8 @@ const styles = StyleSheet.create({
   profileCard: {
     backgroundColor: '#fff',
     borderRadius: 16,
-    padding: 24,
-    marginBottom: 24,
+    padding: 20,
+    marginBottom: 16,
     borderWidth: 1,
     borderColor: '#E1E1E1',
     elevation: 2,
@@ -258,7 +245,7 @@ const styles = StyleSheet.create({
   menuSection: {
     backgroundColor: '#fff',
     borderRadius: 16,
-    marginBottom: 24,
+    marginBottom: 16,
     borderWidth: 1,
     borderColor: '#E1E1E1',
     overflow: 'hidden',
@@ -267,7 +254,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 20,
+    padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
   },

@@ -1,47 +1,85 @@
 import { useQuery } from '@tanstack/react-query'
-import { facilitatorsApi, propertiesApi, maintenanceApi } from '../lib/api'
-import { Users, Home, Wrench, AlertCircle } from 'lucide-react'
+import { adminApi, facilitatorApi } from '../lib/api'
+import { useAuthStore } from '../store/authStore'
+import { Users, Home, Wrench, Building2, UserCheck } from 'lucide-react'
 
 export default function Dashboard() {
-  const { data: facilitators } = useQuery({
-    queryKey: ['facilitators'],
-    queryFn: facilitatorsApi.getAll,
+  const { user } = useAuthStore()
+  const isFacilitator = user?.role === 'facilitator'
+
+  const { data: dashboardStats } = useQuery({
+    queryKey: ['dashboard-stats'],
+    queryFn: adminApi.getDashboardStats,
+    enabled: !isFacilitator, // Only fetch for admins
   })
 
-  const { data: properties } = useQuery({
-    queryKey: ['properties'],
-    queryFn: () => propertiesApi.getAll(1, 100),
+  const { data: facilitatorStats } = useQuery({
+    queryKey: ['facilitator-stats', user?.id],
+    queryFn: () => facilitatorApi.getMyStats(user?.id || ''),
+    enabled: isFacilitator, // Only fetch for facilitators
   })
 
-  const { data: maintenance } = useQuery({
-    queryKey: ['maintenance'],
-    queryFn: () => maintenanceApi.getAll(),
-  })
-
-  const stats = [
+  const stats = isFacilitator ? [
     {
-      name: 'Total Facilitators',
-      value: facilitators?.data?.length || 0,
-      icon: Users,
+      name: 'Assigned Properties',
+      value: facilitatorStats?.assignedProperties || 0,
+      icon: Home,
       color: 'bg-blue-500',
     },
     {
+      name: 'Total Tenants',
+      value: facilitatorStats?.totalTenants || 0,
+      icon: Users,
+      color: 'bg-green-500',
+    },
+    {
+      name: 'Total Units',
+      value: facilitatorStats?.totalUnits || 0,
+      icon: Building2,
+      color: 'bg-indigo-500',
+    },
+    {
+      name: 'Maintenance Requests',
+      value: facilitatorStats?.maintenanceRequests || 0,
+      icon: Wrench,
+      color: 'bg-orange-500',
+    },
+  ] : [
+    {
       name: 'Total Properties',
-      value: properties?.data?.length || 0,
+      value: dashboardStats?.totalProperties || 0,
+      icon: Home,
+      color: 'bg-blue-500',
+    },
+    {
+      name: 'Total Landlords',
+      value: dashboardStats?.totalLandlords || 0,
+      icon: Users,
+      color: 'bg-green-500',
+    },
+    {
+      name: 'Total Facilitators',
+      value: dashboardStats?.totalFacilitators || 0,
+      icon: UserCheck,
+      color: 'bg-purple-500',
+    },
+    {
+      name: 'Total Units',
+      value: dashboardStats?.totalUnits || 0,
+      icon: Building2,
+      color: 'bg-indigo-500',
+    },
+    {
+      name: 'Occupied Units',
+      value: dashboardStats?.occupiedUnits || 0,
       icon: Home,
       color: 'bg-green-500',
     },
     {
       name: 'Maintenance Requests',
-      value: maintenance?.data?.length || 0,
+      value: dashboardStats?.activeMaintenanceRequests || 0,
       icon: Wrench,
       color: 'bg-orange-500',
-    },
-    {
-      name: 'Pending Requests',
-      value: maintenance?.data?.filter((m: any) => m.status === 'pending').length || 0,
-      icon: AlertCircle,
-      color: 'bg-red-500',
     },
   ]
 
@@ -69,50 +107,42 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Recent Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Maintenance */}
-        <div className="bg-white rounded-lg shadow">
-          <div className="p-6 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">Recent Maintenance</h2>
-          </div>
-          <div className="p-6">
-            {maintenance?.data?.slice(0, 5).map((item: any) => (
-              <div key={item.id} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
-                <div>
-                  <p className="font-medium text-gray-900">{item.title}</p>
-                  <p className="text-sm text-gray-500">{item.propertyName}</p>
-                </div>
-                <span className={`px-3 py-1 text-xs font-medium rounded-full ${
-                  item.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                  item.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
-                  'bg-green-100 text-green-800'
-                }`}>
-                  {item.status}
-                </span>
+      {/* Quick Actions */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {!isFacilitator && (
+            <a
+              href="/facilitators"
+              className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
+            >
+              <UserCheck className="w-8 h-8 text-purple-500 mr-3" />
+              <div>
+                <p className="font-medium text-gray-900">Manage Facilitators</p>
+                <p className="text-sm text-gray-500">View and assign facilitators</p>
               </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Unassigned Properties */}
-        <div className="bg-white rounded-lg shadow">
-          <div className="p-6 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">Unassigned Properties</h2>
-          </div>
-          <div className="p-6">
-            {properties?.data?.filter((p: any) => !p.facilitatorId).slice(0, 5).map((property: any) => (
-              <div key={property.id} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
-                <div>
-                  <p className="font-medium text-gray-900">{property.name}</p>
-                  <p className="text-sm text-gray-500">{property.city}</p>
-                </div>
-                <span className="px-3 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">
-                  No Facilitator
-                </span>
-              </div>
-            ))}
-          </div>
+            </a>
+          )}
+          <a
+            href="/properties"
+            className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
+          >
+            <Home className="w-8 h-8 text-blue-500 mr-3" />
+            <div>
+              <p className="font-medium text-gray-900">{isFacilitator ? 'My Properties' : 'View Properties'}</p>
+              <p className="text-sm text-gray-500">{isFacilitator ? 'Properties assigned to you' : 'Manage all properties'}</p>
+            </div>
+          </a>
+          <a
+            href="/maintenance"
+            className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
+          >
+            <Wrench className="w-8 h-8 text-orange-500 mr-3" />
+            <div>
+              <p className="font-medium text-gray-900">Maintenance</p>
+              <p className="text-sm text-gray-500">Track maintenance requests</p>
+            </div>
+          </a>
         </div>
       </div>
     </div>

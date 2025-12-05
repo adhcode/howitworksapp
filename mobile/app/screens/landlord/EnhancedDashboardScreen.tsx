@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   StyleSheet, 
   View, 
@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../context/AuthContext';
 import { apiService } from '../../services/api';
 import { DashboardSkeleton } from '../../components/skeletons';
@@ -39,6 +40,13 @@ const EnhancedDashboardScreen = () => {
   useEffect(() => {
     loadDashboardData();
   }, []);
+
+  // Reload data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      loadDashboardData();
+    }, [])
+  );
 
   const loadDashboardData = async () => {
     try {
@@ -215,12 +223,12 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    padding: 20,
-    paddingTop: 24,
+    padding: 16,
+    paddingTop: 16,
   },
   header: {
-    marginBottom: 24,
-    marginTop: 8,
+    marginBottom: 16,
+    marginTop: 4,
   },
   headerTitle: {
     fontSize: 16,
@@ -231,8 +239,8 @@ const styles = StyleSheet.create({
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 16,
-    marginBottom: 32,
+    gap: 12,
+    marginBottom: 16,
   },
   card: {
     backgroundColor: '#fff',

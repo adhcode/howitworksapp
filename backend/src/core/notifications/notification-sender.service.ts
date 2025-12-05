@@ -77,7 +77,9 @@ export class NotificationSenderService {
 
     // 2. Email Notification (always send)
     if (BUSINESS_RULES.NOTIFICATION_CHANNELS.EMAIL.enabled) {
-      results.email = await this.sendEmailNotification(userEmail, payload);
+      // Extract first name from payload data if available
+      const firstName = payload.data?.firstName || 'User';
+      results.email = await this.sendEmailNotification(userEmail, payload, firstName);
       
       if (results.email.success) {
         this.logger.log(`✅ Email notification sent`);
@@ -160,21 +162,25 @@ export class NotificationSenderService {
    * 
    * @param email - User's email address
    * @param payload - Notification payload
+   * @param firstName - User's first name
    * @returns Result with message ID or error
    */
   async sendEmailNotification(
     email: string,
-    payload: SendNotificationPayload
+    payload: SendNotificationPayload,
+    firstName: string = 'User'
   ): Promise<EmailNotificationResult> {
     try {
       this.logger.log(`📧 Sending email to: ${email}`);
 
-      // Use existing email service
-      // Note: Adjust based on your EmailService implementation
-      await this.emailService.sendVerificationEmail(
+      // Use payment reminder email method for payment notifications
+      await this.emailService.sendPaymentReminderEmail(
         email,
+        firstName,
         payload.title,
-        payload.message
+        payload.message,
+        payload.data?.amount,
+        payload.data?.dueDate
       );
 
       this.logger.log(`📧 Email sent successfully to ${email}`);

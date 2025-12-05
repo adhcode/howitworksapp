@@ -4,8 +4,8 @@ import { useRouter } from 'expo-router';
 import colors from '../../theme/colors';
 
 interface TenantPaymentCardProps {
-  data: any;
-  loading: boolean;
+    data: any;
+    loading: boolean;
 }
 
 const TenantPaymentCard: React.FC<TenantPaymentCardProps> = ({ data, loading }) => {
@@ -39,7 +39,7 @@ const TenantPaymentCard: React.FC<TenantPaymentCardProps> = ({ data, loading }) 
                 {formatCurrency(data?.totalDue || 0)}
             </Text>
             <Text style={styles.dueDate}>Due: {data?.dueDate || 'N/A'}</Text>
-            
+
             <TouchableOpacity style={styles.makePaymentButton} onPress={handleMakePayment}>
                 <Text style={styles.makePaymentText}>Make Payment</Text>
             </TouchableOpacity>

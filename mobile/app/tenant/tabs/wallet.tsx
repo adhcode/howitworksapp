@@ -84,8 +84,11 @@ const TenantWalletScreen = () => {
 
   const handlePaymentSuccess = (reference: string) => {
     console.log('Payment successful:', reference);
-    // Reload payment data to reflect the payment
-    loadPaymentData();
+    // Clear cache and reload payment data to reflect the payment immediately
+    apiService.clearCache();
+    setTimeout(() => {
+      loadPaymentData();
+    }, 500);
   };
 
   if (loading) {
@@ -134,9 +137,55 @@ const TenantWalletScreen = () => {
           {/* Payment History */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Payment History</Text>
-            <View style={styles.historyCard}>
-              <Text style={styles.noHistoryText}>No payment history available</Text>
-            </View>
+            {paymentData?.paymentHistory && paymentData.paymentHistory.length > 0 ? (
+              paymentData.paymentHistory.map((payment: any) => (
+                <View key={payment.id} style={styles.historyCard}>
+                  <View style={styles.historyRow}>
+                    <View style={styles.historyLeft}>
+                      <Text style={styles.historyAmount}>
+                        {formatCurrency(parseFloat(payment.amount))}
+                      </Text>
+                      <Text style={styles.historyDate}>
+                        {new Date(payment.createdAt).toLocaleDateString('en-US', {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric',
+                        })}
+                      </Text>
+                      {payment.description && (
+                        <Text style={styles.historyDescription}>{payment.description}</Text>
+                      )}
+                    </View>
+                    <View style={styles.historyRight}>
+                      <View style={[
+                        styles.statusBadge,
+                        payment.status === 'paid' && styles.statusPaid,
+                        payment.status === 'pending' && styles.statusPending,
+                        payment.status === 'overdue' && styles.statusOverdue,
+                      ]}>
+                        <Text style={[
+                          styles.statusText,
+                          payment.status === 'paid' && styles.statusTextPaid,
+                          payment.status === 'pending' && styles.statusTextPending,
+                          payment.status === 'overdue' && styles.statusTextOverdue,
+                        ]}>
+                          {payment.status.toUpperCase()}
+                        </Text>
+                      </View>
+                      {payment.paystackReference && (
+                        <Text style={styles.referenceText}>
+                          Ref: {payment.paystackReference.slice(-8)}
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                </View>
+              ))
+            ) : (
+              <View style={styles.historyCard}>
+                <Text style={styles.noHistoryText}>No payment history available</Text>
+              </View>
+            )}
           </View>
         </View>
       </ScrollView>
@@ -251,8 +300,8 @@ const styles = StyleSheet.create({
   historyCard: {
     backgroundColor: '#fff',
     borderRadius: 12,
-    padding: 20,
-    alignItems: 'center',
+    padding: 16,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: '#E1E1E1',
   },
@@ -260,6 +309,69 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Outfit_400Regular',
     color: '#666',
+    textAlign: 'center',
+  },
+  historyRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  historyLeft: {
+    flex: 1,
+  },
+  historyRight: {
+    alignItems: 'flex-end',
+  },
+  historyAmount: {
+    fontSize: 18,
+    fontFamily: 'Outfit_600SemiBold',
+    color: colors.primary,
+    marginBottom: 4,
+  },
+  historyDate: {
+    fontSize: 13,
+    fontFamily: 'Outfit_400Regular',
+    color: colors.textGray,
+    marginBottom: 2,
+  },
+  historyDescription: {
+    fontSize: 12,
+    fontFamily: 'Outfit_400Regular',
+    color: colors.textGray,
+    marginTop: 4,
+  },
+  statusBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginBottom: 4,
+  },
+  statusPaid: {
+    backgroundColor: '#E8F5E9',
+  },
+  statusPending: {
+    backgroundColor: '#FFF3E0',
+  },
+  statusOverdue: {
+    backgroundColor: '#FFEBEE',
+  },
+  statusText: {
+    fontSize: 11,
+    fontFamily: 'Outfit_600SemiBold',
+  },
+  statusTextPaid: {
+    color: '#2E7D32',
+  },
+  statusTextPending: {
+    color: '#F57C00',
+  },
+  statusTextOverdue: {
+    color: '#C62828',
+  },
+  referenceText: {
+    fontSize: 10,
+    fontFamily: 'Outfit_400Regular',
+    color: colors.textGray,
   },
 });
 

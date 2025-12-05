@@ -6,7 +6,7 @@ import colors from '../theme/colors';
 import Header from '../components/Header';
 import { apiService } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import CustomAlert from '../components/CustomAlert';
+import { CustomAlert } from '../components/CustomAlert';
 
 interface Message {
     id: string;

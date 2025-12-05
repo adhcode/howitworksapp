@@ -1,5 +1,5 @@
 import { Injectable, Inject, NotFoundException } from '@nestjs/common';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import { DATABASE_CONNECTION } from '../database/database.module';
 import { tenantInvitations, properties, units, users, payments } from '../database/schema';
 import { tenantRentContracts } from '../database/schema/tenant-rent-contracts';
@@ -12,7 +12,10 @@ export class TenantsService {
 
   async getTenantData(userId: string) {
     try {
-      // Get rent contract data (which has the correct payment info)
+      // Get payment data which has accurate totalDue calculation
+      const paymentData = await this.getTenantPayments(userId);
+      
+      // Get contract data for property info
       const contractData = await this.getTenantRentContract(userId);
       
       if (!contractData || !contractData.contract) {
@@ -20,33 +23,21 @@ export class TenantsService {
       }
       
       const contract = contractData.contract;
-      const arrears = contractData.arrears;
-      
-      // Format due date
-      const dueDate = new Date(contract.nextPaymentDue).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      });
-      
-      // Calculate total due (arrears or monthly rent)
-      const totalDue = arrears ? arrears.totalArrears : parseFloat(contract.monthlyAmount);
-      const monthsDue = arrears ? arrears.monthsOverdue : 1;
       
       return {
         property: {
           name: contract.property?.name || 'Unknown Property',
           unit: `Unit ${contract.unit?.unitNumber || 'N/A'}`,
         },
-        totalDue: totalDue,
-        dueDate: dueDate,
+        totalDue: paymentData.totalDue, // Use accurate calculation from getTenantPayments
+        dueDate: paymentData.dueDate,
         tenant: {
           firstName: '', // Will be filled from user context
           lastName: '',
         },
-        monthsDue: monthsDue,
-        monthlyRent: parseFloat(contract.monthlyAmount),
-        totalPaid: 0,
+        monthsDue: paymentData.monthsDue,
+        monthlyRent: paymentData.monthlyRent,
+        totalPaid: paymentData.totalPaid || 0,
       };
     } catch (error) {
       console.error('Error getting tenant data:', error);
@@ -106,14 +97,28 @@ export class TenantsService {
         });
       }
       
-      // For now, assume no payments have been made
-      const totalPaid = 0;
-      const totalDue = Math.max(0, (monthsDue * monthlyRent) - totalPaid);
+      // Calculate total paid from successful payments
+      const paidPayments = await this.db
+        .select()
+        .from(payments)
+        .where(and(
+          eq(payments.tenantId, userId),
+          eq(payments.status, 'paid')
+        ));
+
+      const totalPaid = paidPayments.reduce((sum, payment) => {
+        return sum + parseFloat(payment.amountPaid || payment.amount || '0');
+      }, 0);
+
+      const totalExpected = monthsDue * monthlyRent;
+      const totalDue = Math.max(0, totalExpected - totalPaid);
 
       return {
         totalDue,
+        totalPaid,
+        totalExpected,
         dueDate: nextDueDate,
-        paymentHistory: [], // Empty for now - can be populated later when payment tracking is implemented
+        paymentHistory: await this.getPaymentHistory(userId),
         monthlyRent,
         monthsDue,
         moveInDate: moveInDate.toLocaleDateString('en-US', {
@@ -125,6 +130,32 @@ export class TenantsService {
     } catch (error) {
       console.error('Error getting tenant payments:', error);
       throw error;
+    }
+  }
+
+  async getPaymentHistory(userId: string) {
+    try {
+      const history = await this.db
+        .select({
+          id: payments.id,
+          amount: payments.amount,
+          status: payments.status,
+          paymentMethod: payments.paymentMethod,
+          paidDate: payments.paidDate,
+          createdAt: payments.createdAt,
+          description: payments.description,
+          paystackReference: payments.paystackReference,
+          paystackStatus: payments.paystackStatus,
+        })
+        .from(payments)
+        .where(eq(payments.tenantId, userId))
+        .orderBy(sql`${payments.createdAt} DESC`)
+        .limit(50);
+
+      return history;
+    } catch (error) {
+      console.error('Error getting payment history:', error);
+      return [];
     }
   }
 

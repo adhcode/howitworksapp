@@ -23,13 +23,13 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const navigation = [
-    { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-    { name: 'Facilitators', href: '/facilitators', icon: Users },
-    { name: 'Properties', href: '/properties', icon: Home },
-    { name: 'Maintenance', href: '/maintenance', icon: Wrench },
-    { name: 'Landlords', href: '/landlords', icon: UserCog },
-    { name: 'Settings', href: '/settings', icon: Settings },
-  ]
+    { name: 'Dashboard', href: '/', icon: LayoutDashboard, roles: ['admin', 'facilitator'] },
+    { name: 'Facilitators', href: '/facilitators', icon: Users, roles: ['admin'] },
+    { name: 'Properties', href: '/properties', icon: Home, roles: ['admin', 'facilitator'] },
+    { name: 'Maintenance', href: '/maintenance', icon: Wrench, roles: ['admin', 'facilitator'] },
+    { name: 'Landlords', href: '/landlords', icon: UserCog, roles: ['admin'] },
+    { name: 'Settings', href: '/settings', icon: Settings, roles: ['admin', 'facilitator'] },
+  ].filter(item => item.roles.includes(user?.role || ''))
 
   const handleLogout = () => {
     logout()

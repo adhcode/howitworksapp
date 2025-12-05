@@ -36,7 +36,7 @@ const EnhancedGreetingHeader: React.FC<Props> = ({ user }) => {
           </Text>
         </View>
       </View>
-      
+
       <TouchableOpacity style={styles.notificationButton}>
         <View style={styles.notificationBadge}>
           <MaterialIcons name="notifications" size={20} color="#fff" />
@@ -69,7 +69,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.secondary,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: 28,
   },
   avatarText: {
     fontSize: 18,
@@ -78,6 +78,8 @@ const styles = StyleSheet.create({
   },
   textContainer: {
     flex: 1,
+    marginLeft: 28
+
   },
   greeting: {
     fontSize: 16,

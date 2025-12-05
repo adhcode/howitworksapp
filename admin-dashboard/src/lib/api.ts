@@ -1,7 +1,7 @@
 import axios from 'axios'
 import { useAuthStore } from '../store/authStore'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+const API_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:3000'
 
 export const api = axios.create({
   baseURL: API_URL,
@@ -22,9 +22,16 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 )
 
-// Response interceptor to handle errors
+// Response interceptor to handle errors and unwrap data
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Unwrap the data from the backend's ResponseInterceptor format
+    // Backend returns: { statusCode, message, data, timestamp, path }
+    if (response.data && typeof response.data === 'object' && 'data' in response.data) {
+      response.data = response.data.data
+    }
+    return response
+  },
   (error) => {
     if (error.response?.status === 401) {
       useAuthStore.getState().logout()
@@ -117,6 +124,53 @@ export const landlordsApi = {
   },
   getById: async (id: string) => {
     const response = await api.get(`/users/${id}`)
+    return response.data
+  },
+}
+
+// Admin API
+export const adminApi = {
+  getDashboardStats: async () => {
+    const response = await api.get('/admin/dashboard/stats')
+    return response.data
+  },
+  getProperties: async (page = 1, limit = 50) => {
+    const response = await api.get(`/admin/properties?page=${page}&limit=${limit}`)
+    return response.data
+  },
+  getFacilitators: async () => {
+    const response = await api.get('/admin/facilitators')
+    return response.data
+  },
+  getMaintenance: async (filters?: { status?: string; priority?: string }) => {
+    const params = new URLSearchParams()
+    if (filters?.status) params.append('status', filters.status)
+    if (filters?.priority) params.append('priority', filters.priority)
+    const response = await api.get(`/admin/maintenance?${params.toString()}`)
+    return response.data
+  },
+  getLandlords: async (page = 1, limit = 50) => {
+    const response = await api.get(`/admin/users?role=landlord&page=${page}&limit=${limit}`)
+    return response.data
+  },
+  assignFacilitatorToProperty: async (propertyId: string, facilitatorId: string) => {
+    const response = await api.patch(`/admin/properties/${propertyId}/assign-facilitator`, { facilitatorId })
+    return response.data
+  },
+  getFacilitatorStats: async (facilitatorId: string) => {
+    const response = await api.get(`/facilitators/${facilitatorId}/stats`)
+    return response.data
+  },
+}
+
+// Facilitator-specific API (for when facilitators are logged in)
+export const facilitatorApi = {
+  getMyStats: async (facilitatorId: string) => {
+    const response = await api.get(`/facilitators/${facilitatorId}/stats`)
+    return response.data
+  },
+  getMyProperties: async (facilitatorId: string) => {
+    const response = await api.get(`/facilitators/${facilitatorId}/properties`)
     return response.data
   },
 }

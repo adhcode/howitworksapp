@@ -733,6 +733,48 @@ export class PaymentProcessorService {
     };
   }
 
+  /**
+   * GET LANDLORD BANK ACCOUNTS
+   * 
+   * Returns landlord's saved bank accounts.
+   */
+  async getLandlordBankAccounts(landlordId: string): Promise<any[]> {
+    this.logger.log(`💳 Fetching bank accounts for landlord ${landlordId}`);
+
+    // Get landlord
+    const [landlord] = await this.db
+      .select()
+      .from(users)
+      .where(eq(users.id, landlordId))
+      .limit(1);
+
+    if (!landlord) {
+      throw new NotFoundException(`Landlord ${landlordId} not found`);
+    }
+
+    // Check if landlord has bank account setup
+    if (!landlord.bankAccountNumber || !landlord.bankCode) {
+      this.logger.log(`ℹ️ No bank account found for landlord ${landlordId}`);
+      return [];
+    }
+
+    // Get bank name from Paystack
+    const banksResponse = await this.paystackService.listBanks('nigeria');
+    const bank = banksResponse.data?.find(b => b.code === landlord.bankCode);
+
+    const accounts = [{
+      accountName: landlord.bankAccountName,
+      accountNumber: landlord.bankAccountNumber,
+      bankCode: landlord.bankCode,
+      bankName: bank?.name || 'Unknown Bank',
+      recipientCode: landlord.paystackRecipientCode,
+    }];
+
+    this.logger.log(`✅ Found ${accounts.length} bank account(s) for landlord ${landlordId}`);
+
+    return accounts;
+  }
+
   // ==========================================
   // WALLET MANAGEMENT METHODS
   // ==========================================
@@ -744,6 +786,91 @@ export class PaymentProcessorService {
    */
   async getWalletBalance(landlordId: string) {
     return this.walletService.getBalance(landlordId);
+  }
+
+  /**
+   * GET LANDLORD PAYMENT STATS
+   * 
+   * Returns comprehensive payment statistics for landlord dashboard.
+   */
+  async getLandlordPaymentStats(landlordId: string) {
+    try {
+      this.logger.log(`🔍 Getting payment stats for landlord: ${landlordId}`);
+
+      // Get wallet balance
+      const walletBalance = await this.walletService.getBalance(landlordId);
+      this.logger.log(`💰 Wallet balance: ${walletBalance.availableBalance}`);
+
+      // Get recent transactions
+      const transactions = await this.walletService.getTransactions(landlordId, { limit: 10 });
+      this.logger.log(`📊 Transactions count: ${transactions?.length || 0}`);
+
+      // Get payments directly for this landlord
+      const landlordPayments = await this.db
+        .select()
+        .from(payments)
+        .where(eq(payments.landlordId, landlordId));
+      this.logger.log(`💳 Payments count: ${landlordPayments.length}`);
+
+      // Get contracts for upcoming/pending calculations
+      const contracts = await this.db
+        .select()
+        .from(tenantRentContracts)
+        .where(eq(tenantRentContracts.landlordId, landlordId));
+      this.logger.log(`📋 Contracts count: ${contracts.length}`);
+
+      // Calculate stats
+      const totalRentCollected = landlordPayments
+        .filter(p => p.status === 'paid')
+        .reduce((sum, p) => sum + parseFloat(p.amountPaid || '0'), 0);
+
+      const now = new Date();
+      const nextWeek = new Date();
+      nextWeek.setDate(now.getDate() + 7);
+
+      const upcomingPayments = contracts
+        .filter(c => {
+          if (!c.nextPaymentDue) return false;
+          const dueDate = new Date(c.nextPaymentDue);
+          return dueDate >= now && dueDate <= nextWeek;
+        }).length;
+
+      const pendingPayments = contracts
+        .filter(c => {
+          if (!c.nextPaymentDue) return false;
+          const dueDate = new Date(c.nextPaymentDue);
+          return dueDate < now;
+        })
+        .reduce((sum, c) => sum + parseFloat(c.monthlyAmount || '0'), 0);
+
+      // Format recent transactions
+      const recentTransactions = transactions?.slice(0, 5).map(t => ({
+        type: t.type === 'credit' ? 'credit' : 'debit',
+        description: t.description,
+        amount: parseFloat(t.amount),
+        date: t.createdAt,
+      })) || [];
+
+      const result = {
+        walletBalance: walletBalance.availableBalance || 0,
+        totalRentCollected,
+        upcomingPayments,
+        pendingPayments,
+        recentTransactions,
+      };
+
+      this.logger.log(`✅ Payment stats result:`, result);
+      return result;
+    } catch (error) {
+      this.logger.error(`❌ Error getting landlord payment stats: ${error.message}`);
+      return {
+        walletBalance: 0,
+        totalRentCollected: 0,
+        upcomingPayments: 0,
+        pendingPayments: 0,
+        recentTransactions: [],
+      };
+    }
   }
 
   /**
@@ -849,6 +976,220 @@ export class PaymentProcessorService {
       };
     } catch (error) {
       this.logger.error(`❌ Withdrawal error: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * CHECK FOR PENDING PAYMENT
+   * 
+   * Check if tenant has any pending payments to prevent duplicates
+   * Auto-cancel payments older than 1 hour
+   */
+  async checkPendingPayment(tenantId: string): Promise<boolean> {
+    try {
+      const [pendingPayment] = await this.db
+        .select()
+        .from(payments)
+        .where(
+          and(
+            eq(payments.tenantId, tenantId),
+            eq(payments.status, 'pending'),
+            eq(payments.paymentGateway, 'paystack')
+          )
+        )
+        .limit(1);
+
+      if (!pendingPayment) {
+        return false;
+      }
+
+      // Auto-cancel if older than 5 minutes (300 seconds)
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+      if (pendingPayment.createdAt && new Date(pendingPayment.createdAt) < fiveMinutesAgo) {
+        this.logger.log(`🗑️ Auto-canceling expired pending payment: ${pendingPayment.id}`);
+        await this.db
+          .update(payments)
+          .set({ 
+            status: 'overdue',
+            updatedAt: new Date(),
+          })
+          .where(eq(payments.id, pendingPayment.id));
+        return false; // Allow new payment
+      }
+
+      return true; // Has recent pending payment
+    } catch (error) {
+      this.logger.error(`Error checking pending payment: ${error.message}`);
+      return false;
+    }
+  }
+
+  /**
+   * CREATE PENDING PAYMENT RECORD
+   * 
+   * Create a payment record when payment is initialized
+   */
+  async createPendingPaymentRecord(data: {
+    tenantId: string;
+    amount: number;
+    paystackReference: string;
+    description?: string;
+    metadata?: any;
+  }) {
+    try {
+      // Get tenant's property and unit info from invitation
+      const [invitation] = await this.db
+        .select()
+        .from(schema.tenantInvitations)
+        .where(
+          and(
+            eq(schema.tenantInvitations.tenantId, data.tenantId),
+            eq(schema.tenantInvitations.status, 'accepted')
+          )
+        )
+        .limit(1);
+
+      if (!invitation) {
+        throw new NotFoundException('Tenant invitation not found');
+      }
+
+      // Create payment record
+      const [payment] = await this.db
+        .insert(payments)
+        .values({
+          tenantId: data.tenantId,
+          landlordId: invitation.landlordId,
+          propertyId: invitation.propertyId,
+          unitId: invitation.unitId,
+          tenantInvitationId: invitation.id,
+          amount: data.amount.toString(),
+          amountPaid: '0',
+          dueDate: new Date(),
+          paymentType: 'rent',
+          paymentMethod: 'online',
+          status: 'pending',
+          description: data.description || 'Rent payment',
+          paystackReference: data.paystackReference,
+          paystackStatus: 'pending',
+          paymentGateway: 'paystack',
+        })
+        .returning();
+
+      this.logger.log(`💾 Payment record created: ${payment.id} (${data.paystackReference})`);
+
+      return payment;
+    } catch (error) {
+      this.logger.error(`Error creating payment record: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * UPDATE PAYMENT STATUS
+   * 
+   * Update payment record based on Paystack verification
+   */
+  async updatePaymentStatus(
+    paystackReference: string,
+    paystackStatus: string,
+    paystackData: any
+  ) {
+    try {
+      // Find payment by Paystack reference
+      const [payment] = await this.db
+        .select()
+        .from(payments)
+        .where(eq(payments.paystackReference, paystackReference))
+        .limit(1);
+
+      if (!payment) {
+        this.logger.warn(`⚠️ Payment not found for reference: ${paystackReference}`);
+        return null;
+      }
+
+      // IDEMPOTENCY CHECK: Don't process if already paid
+      if (payment.status === 'paid') {
+        this.logger.warn(`⚠️ Payment already processed: ${paystackReference}`);
+        return payment;
+      }
+
+      // Map Paystack status to our payment status
+      let newStatus: 'pending' | 'paid' | 'overdue' | 'partial' = 'pending';
+      let paidDate: Date | null = null;
+      let amountPaid = '0';
+
+      if (paystackStatus === 'success') {
+        // AMOUNT VALIDATION: Verify Paystack charged the correct amount
+        const expectedAmountInNaira = parseFloat(payment.amount);
+        
+        // IMPORTANT: Paystack's verification API returns amount in Naira (already divided by 100)
+        // NOT in kobo like the initialization API expects
+        const paystackAmountInNaira = parseFloat(paystackData.amount);
+        
+        // Allow 1% tolerance for rounding errors
+        const tolerance = expectedAmountInNaira * 0.01;
+        const difference = Math.abs(expectedAmountInNaira - paystackAmountInNaira);
+        
+        this.logger.log(`💰 Amount validation:`);
+        this.logger.log(`   Expected: ₦${expectedAmountInNaira}`);
+        this.logger.log(`   Paystack: ₦${paystackAmountInNaira}`);
+        this.logger.log(`   Difference: ₦${difference} (tolerance: ₦${tolerance})`);
+        
+        if (difference > tolerance) {
+          this.logger.error(
+            `❌ AMOUNT MISMATCH! Expected: ₦${expectedAmountInNaira}, ` +
+            `Got: ₦${paystackAmountInNaira}`
+          );
+          throw new Error(
+            `Payment amount mismatch. Expected ₦${expectedAmountInNaira}, but Paystack processed ₦${paystackAmountInNaira}`
+          );
+        }
+
+        newStatus = 'paid';
+        paidDate = new Date(paystackData.paid_at || new Date());
+        // Use the original payment amount from our DB (source of truth)
+        amountPaid = payment.amount;
+        
+        this.logger.log(`✅ Payment validated and marked as paid: ₦${amountPaid}`);
+      } else if (paystackStatus === 'failed') {
+        newStatus = 'pending'; // Keep as pending so they can retry
+      }
+
+      // Update payment record
+      const [updatedPayment] = await this.db
+        .update(payments)
+        .set({
+          status: newStatus,
+          paystackStatus: paystackStatus,
+          paidDate: paidDate,
+          amountPaid: amountPaid,
+          receiptNumber: paystackData.reference,
+          updatedAt: new Date(),
+        })
+        .where(eq(payments.id, payment.id))
+        .returning();
+
+      this.logger.log(`✅ Payment updated: ${payment.id} -> ${newStatus}`);
+
+      // If payment is successful, credit landlord wallet
+      if (newStatus === 'paid') {
+        await this.walletService.credit(
+          payment.landlordId,
+          parseFloat(amountPaid),
+          {
+            type: 'rent_payment',
+            paymentId: payment.id,
+            reference: paystackReference,
+            description: `Rent payment from tenant - ${paystackReference}`,
+          }
+        );
+        this.logger.log(`💰 Landlord wallet credited: ${payment.landlordId}`);
+      }
+
+      return updatedPayment;
+    } catch (error) {
+      this.logger.error(`Error updating payment status: ${error.message}`);
       throw error;
     }
   }

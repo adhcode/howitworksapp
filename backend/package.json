@@ -25,6 +25,9 @@
     "db:drop": "drizzle-kit drop",
     "migrate:paystack:dev": "./scripts/migrate-dev.sh",
     "migrate:paystack:prod": "./scripts/migrate-prod.sh",
+    "setup:accounts": "ts-node setup-accounts.ts",
+    "setup:quick": "ts-node quick-setup.ts",
+    "create:admin": "ts-node create-admin-user.ts",
     "prebuild": "rm -rf dist",
     "prestart:prod": "npm run build"
   },

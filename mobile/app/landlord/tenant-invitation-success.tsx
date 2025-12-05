@@ -13,7 +13,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import colors from '../theme/colors';
 import Header from '../components/Header';
-import CustomAlert from '../components/CustomAlert';
+import { CustomAlert } from '../components/CustomAlert';
 
 const TenantInvitationSuccessScreen = () => {
   const router = useRouter();

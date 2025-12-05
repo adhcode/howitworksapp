@@ -27,11 +27,11 @@ const TenantSettingsScreen = () => {
   };
 
   const handleHelpSupport = () => {
-    router.push('/profile/support');
+    router.push('/tenant/help-support');
   };
 
   const handleChangePassword = () => {
-    router.push('/profile/change-password');
+    router.push('/tenant/change-password');
   };
 
   const menuItems = [

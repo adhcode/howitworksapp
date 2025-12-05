@@ -11,6 +11,7 @@ import {
   HttpException,
   ParseUUIDPipe,
   Delete,
+  Logger,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -49,6 +50,8 @@ enum UserRole {
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class PaymentsController {
+  private readonly logger = new Logger(PaymentsController.name);
+
   constructor(
     private readonly paymentProcessor: PaymentProcessorService,
     private readonly paystackService: PaystackService,
@@ -106,6 +109,91 @@ export class PaymentsController {
   }
 
   /**
+   * INITIALIZE PAYSTACK PAYMENT (GENERIC)
+   * 
+   * Initialize a generic Paystack payment (not tied to a contract).
+   * Used for one-time payments, top-ups, etc.
+   * Creates a payment record immediately with status='pending'
+   */
+  @Post('paystack/initialize')
+  @Roles(UserRole.TENANT, UserRole.LANDLORD, UserRole.ADMIN)
+  @ApiOperation({
+    summary: 'Initialize Paystack payment',
+    description: 'Initialize a generic payment with Paystack. Returns authorization URL.',
+  })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Payment initialized' })
+  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Invalid request' })
+  async initializePaystackPayment(
+    @Body() dto: { 
+      email: string; 
+      amount: number; 
+      currency?: string;
+      description?: string;
+      metadata?: any;
+    },
+    @Request() req: any
+  ) {
+    try {
+      this.logger.log(`🔄 Initializing Paystack payment for ${dto.email}: ₦${dto.amount}`);
+
+      // Check for existing pending payment for this tenant
+      const existingPending = await this.paymentProcessor.checkPendingPayment(req.user.id);
+      if (existingPending) {
+        this.logger.warn(`⚠️ User ${req.user.id} already has a pending payment`);
+        throw new HttpException(
+          'You already have a pending payment. Please complete or cancel it first.',
+          HttpStatus.CONFLICT
+        );
+      }
+
+      // Initialize payment with Paystack
+      // Note: Amount should be in Naira, PaystackService will convert to kobo
+      const result = await this.paystackService.initializeTransaction({
+        email: dto.email,
+        amount: dto.amount, // Send in Naira, service converts to kobo
+        currency: dto.currency || 'NGN',
+        metadata: {
+          ...dto.metadata,
+          userId: req.user.id,
+          userRole: req.user.role,
+          description: dto.description,
+        },
+      });
+
+      if (!result.status) {
+        throw new HttpException(
+          result.message || 'Failed to initialize payment',
+          HttpStatus.BAD_REQUEST
+        );
+      }
+
+      // Create payment record in database with status='pending'
+      await this.paymentProcessor.createPendingPaymentRecord({
+        tenantId: req.user.id,
+        amount: dto.amount,
+        paystackReference: result.data?.reference || '',
+        description: dto.description,
+        metadata: dto.metadata,
+      });
+
+      this.logger.log(`✅ Payment initialized and recorded: ${result.data?.reference}`);
+
+      return {
+        success: true,
+        authorization_url: result.data?.authorization_url,
+        access_code: result.data?.access_code,
+        reference: result.data?.reference,
+      };
+    } catch (error) {
+      this.logger.error(`❌ Payment initialization failed: ${error.message}`);
+      throw new HttpException(
+        error.message || 'Failed to initialize payment',
+        error.status || HttpStatus.BAD_REQUEST
+      );
+    }
+  }
+
+  /**
    * VERIFY PAYMENT
    * 
    * Verify payment status after Paystack redirect.
@@ -137,6 +225,60 @@ export class PaymentsController {
         },
       };
     } catch (error) {
+      throw new HttpException(
+        error.message || 'Failed to verify payment',
+        HttpStatus.BAD_REQUEST
+      );
+    }
+  }
+
+  /**
+   * VERIFY PAYSTACK PAYMENT (POST)
+   * 
+   * Verify payment status via POST request.
+   * Updates payment record in database based on Paystack status.
+   */
+  @Post('paystack/verify')
+  @Roles(UserRole.TENANT, UserRole.LANDLORD, UserRole.ADMIN)
+  @ApiOperation({ summary: 'Verify Paystack payment' })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Payment verified' })
+  async verifyPaystackPayment(
+    @Body() dto: { reference: string },
+  ) {
+    try {
+      this.logger.log(`🔍 Verifying payment: ${dto.reference}`);
+
+      const verification = await this.paystackService.verifyTransaction(dto.reference);
+      
+      if (!verification.status) {
+        this.logger.error(`❌ Verification failed: ${verification.message}`);
+        throw new HttpException(verification.message || 'Verification failed', HttpStatus.BAD_REQUEST);
+      }
+
+      const paystackStatus = verification.data?.status || 'unknown';
+      this.logger.log(`✅ Payment verified with Paystack: ${paystackStatus}`);
+      this.logger.log(`💰 Raw amount from Paystack: ${verification.data?.amount}`);
+      
+      // Paystack returns amount in kobo, so we need to pass it as-is
+      // The payment processor will validate it
+      await this.paymentProcessor.updatePaymentStatus(
+        dto.reference,
+        paystackStatus,
+        verification.data
+      );
+
+      return {
+        status: true,
+        data: {
+          reference: verification.data?.reference,
+          status: paystackStatus,
+          amount: verification.data?.amount ? verification.data.amount / 100 : 0, // Convert from kobo
+          paid_at: verification.data?.paid_at,
+          message: verification.data?.gateway_response,
+        },
+      };
+    } catch (error) {
+      this.logger.error(`❌ Verification error: ${error.message}`);
       throw new HttpException(
         error.message || 'Failed to verify payment',
         HttpStatus.BAD_REQUEST
@@ -342,6 +484,34 @@ export class PaymentsController {
   }
 
   /**
+   * GET BANK ACCOUNTS
+   * 
+   * Get landlord's saved bank accounts.
+   */
+  @Get('landlord/bank-accounts')
+  @Roles(UserRole.LANDLORD, UserRole.ADMIN)
+  @ApiOperation({
+    summary: 'Get saved bank accounts',
+    description: 'Retrieve landlord\'s saved bank accounts',
+  })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Bank accounts retrieved' })
+  async getBankAccounts(@Request() req: any) {
+    try {
+      const accounts = await this.paymentProcessor.getLandlordBankAccounts(req.user.id);
+
+      return {
+        success: true,
+        data: accounts,
+      };
+    } catch (error) {
+      throw new HttpException(
+        error.message || 'Failed to fetch bank accounts',
+        HttpStatus.BAD_REQUEST
+      );
+    }
+  }
+
+  /**
    * REQUEST PAYOUT
    * 
    * Landlord requests payout to their bank account.
@@ -457,7 +627,17 @@ export class PaymentsController {
       const result = await this.paystackService.listBanks('nigeria');
 
       if (!result.status) {
-        throw new HttpException('Failed to fetch banks', HttpStatus.BAD_REQUEST);
+        throw new HttpException(
+          result.message || 'Failed to fetch banks from Paystack',
+          HttpStatus.BAD_REQUEST
+        );
+      }
+
+      if (!result.data || result.data.length === 0) {
+        throw new HttpException(
+          'No banks returned from Paystack',
+          HttpStatus.NOT_FOUND
+        );
       }
 
       return {
@@ -467,7 +647,7 @@ export class PaymentsController {
     } catch (error) {
       throw new HttpException(
         error.message || 'Failed to fetch banks',
-        HttpStatus.BAD_REQUEST
+        error.status || HttpStatus.BAD_REQUEST
       );
     }
   }
@@ -485,14 +665,19 @@ export class PaymentsController {
     @Body() dto: { account_number: string; bank_code: string }
   ) {
     try {
+      this.logger.log(`🔍 Resolving account: ${dto.account_number} at bank: ${dto.bank_code}`);
+      
       const result = await this.paystackService.resolveAccountNumber(dto);
 
       if (!result.status) {
+        this.logger.error(`❌ Account resolution failed: ${result.message}`);
         throw new HttpException(
           result.message || 'Invalid account number',
           HttpStatus.BAD_REQUEST
         );
       }
+
+      this.logger.log(`✅ Account resolved successfully: ${result.data?.account_name}`);
 
       return {
         success: true,
@@ -593,6 +778,31 @@ export class PaymentsController {
     } catch (error) {
       throw new HttpException(
         error.message || 'Failed to fetch transactions',
+        HttpStatus.BAD_REQUEST
+      );
+    }
+  }
+
+  /**
+   * GET LANDLORD PAYMENT STATS
+   * 
+   * Get comprehensive payment statistics for landlord dashboard.
+   */
+  @Get('landlord/stats')
+  @Roles(UserRole.LANDLORD, UserRole.ADMIN)
+  @ApiOperation({ summary: 'Get landlord payment statistics' })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Payment stats retrieved' })
+  async getLandlordPaymentStats(@Request() req: any) {
+    try {
+      const stats = await this.paymentProcessor.getLandlordPaymentStats(req.user.id);
+
+      return {
+        success: true,
+        data: stats,
+      };
+    } catch (error) {
+      throw new HttpException(
+        error.message || 'Failed to fetch payment stats',
         HttpStatus.BAD_REQUEST
       );
     }

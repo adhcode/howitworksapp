@@ -415,6 +415,139 @@ export class EmailService {
     }
   }
 
+  async sendPaymentReminderEmail(
+    email: string,
+    firstName: string,
+    title: string,
+    message: string,
+    amount?: number,
+    dueDate?: string,
+  ): Promise<void> {
+    if (!this.resend) {
+      this.logger.warn('Resend not configured. Skipping email send.');
+      return;
+    }
+
+    try {
+      const { data, error } = await this.resend.emails.send({
+        from: this.configService.get('RESEND_FROM_EMAIL', 'HowitWorks <noreply@howitworks.com.ng>'),
+        to: [email],
+        subject: title,
+        html: `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>${title}</title>
+          </head>
+          <body style="margin: 0; padding: 0; background-color: #f5f5f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+            <table role="presentation" style="width: 100%; border-collapse: collapse; background-color: #f5f5f5;">
+              <tr>
+                <td align="center" style="padding: 40px 20px;">
+                  <table role="presentation" style="width: 100%; max-width: 600px; border-collapse: collapse; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+                    
+                    <!-- Header -->
+                    <tr>
+                      <td style="background: linear-gradient(135deg, #1A2A52 0%, #2d4575 100%); padding: 40px 30px; text-align: center;">
+                        <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -0.5px;">
+                          HowitWorks
+                        </h1>
+                        <p style="color: #e0e7ff; margin: 8px 0 0 0; font-size: 14px; font-weight: 400;">
+                          Property Management Made Simple
+                        </p>
+                      </td>
+                    </tr>
+                    
+                    <!-- Content -->
+                    <tr>
+                      <td style="padding: 40px 30px;">
+                        <h2 style="color: #1A2A52; margin: 0 0 20px 0; font-size: 24px; font-weight: 600;">
+                          ${title}
+                        </h2>
+                        
+                        <p style="color: #4b5563; line-height: 1.6; margin: 0 0 16px 0; font-size: 16px;">
+                          Hi ${firstName},
+                        </p>
+                        
+                        <p style="color: #4b5563; line-height: 1.6; margin: 0 0 30px 0; font-size: 16px;">
+                          ${message}
+                        </p>
+                        
+                        ${amount ? `
+                        <!-- Payment Details -->
+                        <div style="background-color: #f9fafb; border-radius: 8px; padding: 24px; margin: 0 0 30px 0;">
+                          <table role="presentation" style="width: 100%; border-collapse: collapse;">
+                            <tr>
+                              <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Amount Due:</td>
+                              <td style="padding: 8px 0; color: #1A2A52; font-size: 18px; font-weight: 700; text-align: right;">₦${amount.toLocaleString()}</td>
+                            </tr>
+                            ${dueDate ? `
+                            <tr>
+                              <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Due Date:</td>
+                              <td style="padding: 8px 0; color: #1A2A52; font-size: 16px; font-weight: 600; text-align: right;">${new Date(dueDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</td>
+                            </tr>
+                            ` : ''}
+                          </table>
+                        </div>
+                        ` : ''}
+                        
+                        <!-- CTA Button -->
+                        <table role="presentation" style="width: 100%; border-collapse: collapse;">
+                          <tr>
+                            <td align="center" style="padding: 0 0 30px 0;">
+                              <a href="${this.configService.get('FRONTEND_URL', 'http://localhost:8081')}" 
+                                 style="display: inline-block; background-color: #1A2A52; color: #ffffff; 
+                                        padding: 16px 40px; text-decoration: none; border-radius: 8px; 
+                                        font-weight: 600; font-size: 16px; box-shadow: 0 4px 6px rgba(26, 42, 82, 0.2);">
+                                Make Payment
+                              </a>
+                            </td>
+                          </tr>
+                        </table>
+                        
+                        <!-- Support -->
+                        <div style="border-top: 1px solid #e5e7eb; padding-top: 20px;">
+                          <p style="color: #9ca3af; font-size: 13px; line-height: 1.5; margin: 0;">
+                            If you have any questions or need assistance, please contact our support team.
+                          </p>
+                        </div>
+                      </td>
+                    </tr>
+                    
+                    <!-- Footer -->
+                    <tr>
+                      <td style="background-color: #f9fafb; padding: 30px; text-align: center; border-top: 1px solid #e5e7eb;">
+                        <p style="color: #6b7280; font-size: 13px; margin: 0 0 8px 0;">
+                          © 2025 HowitWorks. All rights reserved.
+                        </p>
+                        <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+                          Property Management Platform
+                        </p>
+                      </td>
+                    </tr>
+                    
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </body>
+          </html>
+        `,
+      });
+
+      if (error) {
+        this.logger.error(`Resend API error:`, error);
+        throw new Error(`Failed to send payment reminder email: ${error.message}`);
+      }
+
+      this.logger.log(`Payment reminder email sent to ${email}. Message ID: ${data?.id}`);
+    } catch (error) {
+      this.logger.error(`Failed to send payment reminder email to ${email}:`, error);
+      throw error;
+    }
+  }
+
   async sendPasswordResetEmail(email: string, firstName: string, token: string): Promise<void> {
     if (!this.resend) {
       this.logger.warn('Resend not configured. Skipping email send.');

@@ -7,7 +7,7 @@ import * as ImagePicker from 'expo-image-picker';
 import colors from '../theme/colors';
 import Header from '../components/Header';
 import { apiService } from '../services/api';
-import CustomAlert from '../components/CustomAlert';
+import { CustomAlert } from '../components/CustomAlert';
 
 interface ComplaintForm {
     title: string;

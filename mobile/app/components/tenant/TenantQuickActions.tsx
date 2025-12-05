@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput, ActivityInd
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import colors from '../../theme/colors';
-import CustomAlert from '../CustomAlert';
+import { CustomAlert } from '../CustomAlert';
 import { apiService } from '../../services/api';
 
 const TenantQuickActions = () => {

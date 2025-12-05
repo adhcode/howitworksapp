@@ -15,7 +15,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import colors from '../theme/colors';
 import Header from '../components/Header';
-import CustomAlert from '../components/CustomAlert';
+import { CustomAlert } from '../components/CustomAlert';
 import CustomConfirmation from '../components/CustomConfirmation';
 import { apiService } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -202,17 +202,17 @@ const TenantSignupScreen = () => {
           const result = await apiService.registerWithInvitation(signupData);
           console.log('Registration result:', JSON.stringify(result, null, 2));
 
-          showAlert('success', 'Account Created!', 'Your tenant account has been created successfully. You can now access your tenant portal.');
+          // Check if registration was successful
+          if (result.success === false) {
+            showAlert('error', 'Registration Failed', result.message || 'Failed to create account. Please try again.');
+            return;
+          }
 
-          // Auto-login the user
-          setTimeout(async () => {
-            try {
-              await login(formData.email, formData.password);
-              router.replace('/tenant/tabs/home');
-            } catch (error) {
-              // If auto-login fails, redirect to login
-              router.replace('/auth/login');
-            }
+          showAlert('success', 'Account Created!', 'Please verify your email to complete registration. A verification code has been sent to your email.');
+
+          // Redirect to email verification screen
+          setTimeout(() => {
+            router.replace(`/auth/verify-email?email=${encodeURIComponent(formData.email)}`);
           }, 2000);
 
         } catch (error: any) {

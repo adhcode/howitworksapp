@@ -1,4 +1,4 @@
-import { X, MapPin, User, Calendar, AlertCircle } from 'lucide-react'
+import { X, MapPin, User, Calendar } from 'lucide-react'
 import { formatDateTime } from '../../lib/utils'
 
 interface MaintenanceDetailsModalProps {

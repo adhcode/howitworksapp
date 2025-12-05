@@ -1,196 +1,176 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-
-// Simple in-memory storage for now (same as AuthContext - can be replaced with AsyncStorage later)
-class SimpleStorage {
-  private storage: { [key: string]: string } = {};
-
-  async getItemAsync(key: string): Promise<string | null> {
-    return this.storage[key] || null;
-  }
-
-  async setItemAsync(key: string, value: string): Promise<void> {
-    this.storage[key] = value;
-  }
-
-  async deleteItemAsync(key: string): Promise<void> {
-    delete this.storage[key];
-  }
-}
-
-const storage = new SimpleStorage();
-
-export interface Notification {
-  id: string;
-  title: string;
-  message: string;
-  type: 'tenant_added' | 'property_added' | 'unit_added' | 'payment_received' | 'general';
-  isRead: boolean;
-  createdAt: Date;
-  userId?: string; // Add userId to tie notifications to specific user
-  data?: any;
-}
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
+import * as Notifications from 'expo-notifications';
+import { useRouter, useSegments } from 'expo-router';
+import { registerForPushNotifications, setBadgeCount } from '../services/notificationService';
+import { useAuth } from './AuthContext';
 
 interface NotificationContextType {
-  notifications: Notification[];
+  expoPushToken: string | undefined;
+  notification: Notifications.Notification | undefined;
   unreadCount: number;
-  addNotification: (notification: Omit<Notification, 'id' | 'isRead' | 'createdAt'>) => void;
-  markAsRead: (notificationId: string) => void;
-  markAllAsRead: () => void;
-  clearNotifications: () => void;
-  loadNotifications: (userId: string) => Promise<void>;
+  refreshUnreadCount: () => Promise<void>;
   clearUserNotifications: () => void;
+  loadNotifications: (userId: string) => Promise<void>;
 }
 
-const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
+const NotificationContext = createContext<NotificationContextType>({
+  expoPushToken: undefined,
+  notification: undefined,
+  unreadCount: 0,
+  refreshUnreadCount: async () => {},
+  clearUserNotifications: () => {},
+  loadNotifications: async () => {},
+});
 
-export const useNotifications = () => {
-  const context = useContext(NotificationContext);
-  if (!context) {
-    throw new Error('useNotifications must be used within NotificationProvider');
-  }
-  return context;
-};
+export function useNotifications() {
+  return useContext(NotificationContext);
+}
 
-export const NotificationProvider = ({ children }: { children: ReactNode }) => {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+export function NotificationProvider({ children }: { children: React.ReactNode }) {
+  const [expoPushToken, setExpoPushToken] = useState<string | undefined>();
+  const [notification, setNotification] = useState<Notifications.Notification | undefined>();
+  const [unreadCount, setUnreadCount] = useState(0);
+  const notificationListener = useRef<Notifications.Subscription>();
+  const responseListener = useRef<Notifications.Subscription>();
+  const router = useRouter();
+  const segments = useSegments();
+  const { user, isAuthenticated } = useAuth();
 
-  const unreadCount = notifications.filter(n => !n.isRead).length;
+  useEffect(() => {
+    // Only register for notifications if user is authenticated
+    if (isAuthenticated && user) {
+      registerForPushNotifications().then(token => {
+        setExpoPushToken(token);
+      });
 
-  // Load notifications for a specific user
-  const loadNotifications = useCallback(async (userId: string) => {
-    try {
-      setCurrentUserId(userId);
-      const storedNotifications = await storage.getItemAsync(`notifications_${userId}`);
-      if (storedNotifications) {
-        const parsedNotifications = JSON.parse(storedNotifications).map((n: any) => ({
-          ...n,
-          createdAt: new Date(n.createdAt), // Convert back to Date object
-        }));
-        setNotifications(parsedNotifications);
-      } else {
-        setNotifications([]);
+      // Listen for notifications received while app is open
+      notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
+        console.log('📬 Notification received:', notification);
+        setNotification(notification);
+        
+        // Increment unread count
+        setUnreadCount(prev => prev + 1);
+      });
+
+      // Listen for notification taps
+      responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
+        console.log('👆 Notification tapped:', response);
+        const data = response.notification.request.content.data;
+        handleNotificationTap(data);
+      });
+
+      // Load initial unread count
+      refreshUnreadCount();
+    }
+
+    return () => {
+      if (notificationListener.current) {
+        Notifications.removeNotificationSubscription(notificationListener.current);
       }
+      if (responseListener.current) {
+        Notifications.removeNotificationSubscription(responseListener.current);
+      }
+    };
+  }, [isAuthenticated, user]);
+
+  // Update badge count when unread count changes
+  useEffect(() => {
+    setBadgeCount(unreadCount);
+  }, [unreadCount]);
+
+  const refreshUnreadCount = async () => {
+    try {
+      // TODO: Fetch from API
+      // const response = await apiService.getUnreadNotificationCount();
+      // setUnreadCount(response.count);
+    } catch (error) {
+      console.error('Error fetching unread count:', error);
+    }
+  };
+
+  const clearUserNotifications = () => {
+    console.log('🧹 Clearing user notifications from memory');
+    setNotification(undefined);
+    setUnreadCount(0);
+    setBadgeCount(0);
+  };
+
+  const loadNotifications = async (userId: string) => {
+    console.log('📥 Loading notifications for user:', userId);
+    try {
+      // TODO: Fetch notifications from API
+      // const response = await apiService.getNotifications(userId);
+      // Process notifications and update state
+      await refreshUnreadCount();
     } catch (error) {
       console.error('Error loading notifications:', error);
-      setNotifications([]);
     }
-  }, []);
+  };
 
-  // Save notifications to storage
-  const saveNotifications = async (updatedNotifications: Notification[]) => {
-    if (!currentUserId) return;
+  const handleNotificationTap = (data: any) => {
+    console.log('🔔 Handling notification tap with data:', data);
+
+    // Determine user role from segments or user object
+    const isLandlord = user?.role === 'landlord';
+    const isTenant = user?.role === 'tenant';
+    const isFacilitator = user?.role === 'facilitator';
 
     try {
-      await storage.setItemAsync(
-        `notifications_${currentUserId}`,
-        JSON.stringify(updatedNotifications)
-      );
+      switch (data.type) {
+        case 'maintenance':
+          if (isLandlord) {
+            router.push(`/landlord/maintenance-detail?id=${data.id}`);
+          } else if (isTenant) {
+            router.push(`/tenant-screens/complaint-detail?id=${data.id}`);
+          } else if (isFacilitator) {
+            // TODO: Add facilitator route
+            router.push(`/maintenance-detail?id=${data.id}`);
+          }
+          break;
+
+        case 'payment':
+          if (isLandlord) {
+            router.push('/landlord/wallet');
+          } else if (isTenant) {
+            router.push('/tenant/wallet');
+          }
+          break;
+
+        case 'message':
+          if (isLandlord) {
+            router.push('/landlord-screens/messages');
+          } else if (isTenant) {
+            router.push('/tenant-screens/messages');
+          }
+          break;
+
+        case 'tenant_invitation':
+          if (isTenant) {
+            router.push('/tenant/tabs/home');
+          }
+          break;
+
+        default:
+          console.log('Unknown notification type:', data.type);
+          break;
+      }
     } catch (error) {
-      console.error('Error saving notifications:', error);
+      console.error('Error navigating from notification:', error);
     }
-  };
-
-  const addNotification = (notificationData: Omit<Notification, 'id' | 'isRead' | 'createdAt'>) => {
-    const newNotification: Notification = {
-      ...notificationData,
-      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-      isRead: false,
-      createdAt: new Date(),
-      userId: currentUserId || undefined,
-    };
-
-    const updatedNotifications = [newNotification, ...notifications];
-    setNotifications(updatedNotifications);
-    saveNotifications(updatedNotifications);
-  };
-
-  const markAsRead = (notificationId: string) => {
-    const updatedNotifications = notifications.map(notification =>
-      notification.id === notificationId
-        ? { ...notification, isRead: true }
-        : notification
-    );
-    setNotifications(updatedNotifications);
-    saveNotifications(updatedNotifications);
-  };
-
-  const markAllAsRead = () => {
-    const updatedNotifications = notifications.map(notification => ({
-      ...notification,
-      isRead: true
-    }));
-    setNotifications(updatedNotifications);
-    saveNotifications(updatedNotifications);
-  };
-
-  const clearNotifications = () => {
-    setNotifications([]);
-    if (currentUserId) {
-      storage.deleteItemAsync(`notifications_${currentUserId}`);
-    }
-  };
-
-  // Clear notifications when user logs out (but keep them in storage)
-  const clearUserNotifications = useCallback(() => {
-    setNotifications([]);
-    setCurrentUserId(null);
-  }, []);
-
-  // Helper functions to add specific types of notifications
-  const notificationHelpers = {
-    tenantAdded: (tenantName: string, propertyName: string) => {
-      addNotification({
-        title: 'New Tenant Added',
-        message: `${tenantName} has been added to ${propertyName}`,
-        type: 'tenant_added',
-        data: { tenantName, propertyName },
-      });
-    },
-
-    propertyAdded: (propertyName: string) => {
-      addNotification({
-        title: 'New Property Added',
-        message: `${propertyName} has been successfully added to your portfolio`,
-        type: 'property_added',
-        data: { propertyName },
-      });
-    },
-
-    unitAdded: (unitNumber: string, propertyName: string) => {
-      addNotification({
-        title: 'New Unit Added',
-        message: `Unit ${unitNumber} has been added to ${propertyName}`,
-        type: 'unit_added',
-        data: { unitNumber, propertyName },
-      });
-    },
-
-    paymentReceived: (amount: number, tenantName: string, propertyName: string) => {
-      addNotification({
-        title: 'Payment Received',
-        message: `₦${amount.toLocaleString()} received from ${tenantName} at ${propertyName}`,
-        type: 'payment_received',
-        data: { amount, tenantName, propertyName },
-      });
-    },
   };
 
   return (
     <NotificationContext.Provider
       value={{
-        notifications,
+        expoPushToken,
+        notification,
         unreadCount,
-        addNotification,
-        markAsRead,
-        markAllAsRead,
-        clearNotifications,
-        loadNotifications,
+        refreshUnreadCount,
         clearUserNotifications,
-        ...notificationHelpers,
+        loadNotifications,
       }}
     >
       {children}
     </NotificationContext.Provider>
   );
-};
+}

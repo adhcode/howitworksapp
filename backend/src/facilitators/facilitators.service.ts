@@ -1,5 +1,5 @@
 import { Injectable, Inject, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
-import { eq, and, or, desc, sql } from 'drizzle-orm';
+import { eq, and, or, desc, sql, count } from 'drizzle-orm';
 import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
 import { DATABASE_CONNECTION } from '../database/database.module';
@@ -55,17 +55,6 @@ export class FacilitatorsService {
    */
   async getAllFacilitators() {
     try {
-      // First, let's see all users
-      const allUsers = await this.db
-        .select({
-          id: users.id,
-          email: users.email,
-          role: users.role,
-        })
-        .from(users);
-      
-      console.log('All users in database:', allUsers);
-      
       const facilitators = await this.db
         .select({
           id: users.id,
@@ -81,8 +70,23 @@ export class FacilitatorsService {
         .where(eq(users.role, 'facilitator'))
         .orderBy(desc(users.createdAt));
 
-      console.log('Facilitators found:', facilitators.length, facilitators);
-      return facilitators;
+      // Get property counts for each facilitator
+      const facilitatorsWithCounts = await Promise.all(
+        facilitators.map(async (facilitator) => {
+          const [propertyCount] = await this.db
+            .select({ count: count() })
+            .from(properties)
+            .where(eq(properties.facilitatorId, facilitator.id));
+
+          return {
+            ...facilitator,
+            assignedProperties: Number(propertyCount?.count || 0),
+          };
+        })
+      );
+
+      console.log('Facilitators with property counts:', facilitatorsWithCounts);
+      return facilitatorsWithCounts;
     } catch (error) {
       console.error('Error getting facilitators:', error);
       throw error;

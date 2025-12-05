@@ -341,6 +341,8 @@ export class TenantInvitationsService {
 
   async getAcceptedTenantsByLandlord(landlordId: string): Promise<any[]> {
     try {
+      console.log('🔍 Getting accepted tenants for landlord:', landlordId);
+      
       const acceptedInvitations = await this.db
         .select({
           invitation: tenantInvitations,
@@ -355,13 +357,33 @@ export class TenantInvitationsService {
           eq(tenantInvitations.status, 'accepted')
         ));
 
-      return acceptedInvitations.map(result => ({
-        ...result.invitation,
+      console.log('🔍 Found accepted invitations:', acceptedInvitations.length);
+
+      const result = acceptedInvitations.map(result => ({
+        // Flatten invitation data to top level for easier access
+        id: result.invitation.id,
+        propertyId: result.invitation.propertyId,
+        unitId: result.invitation.unitId,
+        firstName: result.invitation.firstName,
+        lastName: result.invitation.lastName,
+        email: result.invitation.email,
+        phone: result.invitation.phone,
+        monthlyRent: result.invitation.monthlyRent,
+        securityDeposit: result.invitation.securityDeposit,
+        status: result.invitation.status,
+        leaseStartDate: result.invitation.leaseStartDate,
+        leaseEndDate: result.invitation.leaseEndDate,
+        createdAt: result.invitation.createdAt,
+        updatedAt: result.invitation.updatedAt,
+        // Include nested objects
         property: result.property,
         unit: result.unit,
       }));
+
+      console.log('🔍 Returning tenants:', result);
+      return result;
     } catch (error) {
-      console.error('Error getting accepted tenants:', error);
+      console.error('❌ Error getting accepted tenants:', error);
       return [];
     }
   }

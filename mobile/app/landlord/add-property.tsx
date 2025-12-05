@@ -9,7 +9,7 @@ import colors from '../theme/colors';
 // @ts-ignore: no types for naija-state-local-government
 import naijaStates from 'naija-state-local-government';
 import Header from '../components/Header';
-import CustomAlert from '../components/CustomAlert';
+import { CustomAlert } from '../components/CustomAlert';
 import { apiService } from '../services/api';
 import { useNotifications } from '../context/NotificationContext';
 
@@ -50,12 +50,14 @@ const AddPropertyScreen = () => {
     const [modalType, setModalType] = useState<'state' | 'city' | 'propertyType' | 'amenities' | 'imageOptions' | null>(null);
 
     // Alert state
-    const [alertVisible, setAlertVisible] = useState(false);
     const [alertConfig, setAlertConfig] = useState({
+        visible: false,
         type: 'info' as 'success' | 'error' | 'warning' | 'info',
         title: '',
         message: '',
         onConfirm: undefined as (() => void) | undefined,
+        confirmText: 'OK',
+        cancelText: 'Cancel',
     });
 
     // Get cities for selected state
@@ -92,15 +94,22 @@ const AddPropertyScreen = () => {
         );
     };
 
-    const showAlert = (type: 'success' | 'error' | 'warning' | 'info', title: string, message: string, onConfirm?: () => void) => {
-        setAlertConfig({ type, title, message, onConfirm });
-        setAlertVisible(true);
+    const showAlert = (config: Omit<typeof alertConfig, 'visible'>) => {
+        setAlertConfig({ ...config, visible: true });
+    };
+
+    const hideAlert = () => {
+        setAlertConfig((prev) => ({ ...prev, visible: false }));
     };
 
     const requestPermissions = async () => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
-            showAlert('warning', 'Permission Required', 'Please grant camera roll permissions to upload images.');
+            showAlert({
+                type: 'warning',
+                title: 'Permission Required',
+                message: 'Please grant camera roll permissions to upload images.',
+            });
             return false;
         }
         return true;
@@ -332,21 +341,27 @@ const AddPropertyScreen = () => {
                 data: { propertyName },
             });
 
-            showAlert(
-                'success',
-                'Property Added Successfully!',
-                'Your property has been added to your portfolio and is now available for management.',
-                () => {
+            showAlert({
+                type: 'success',
+                title: 'Property Added Successfully!',
+                message: 'Your property has been added to your portfolio and is now available for management.',
+                onConfirm: () => {
+                    hideAlert();
                     if (params.from === 'home' || params.from === 'dashboard') {
                         router.push('/landlord/tabs/home');
                     } else {
                         router.push('/landlord/tabs/property');
                     }
-                }
-            );
+                },
+                confirmText: 'View Properties',
+            });
         } catch (error: any) {
             console.error('Error creating property:', error);
-            showAlert('error', 'Failed to Add Property', error.message || 'Something went wrong while adding your property. Please check your connection and try again.');
+            showAlert({
+                type: 'error',
+                title: 'Failed to Add Property',
+                message: error.message || 'Something went wrong while adding your property. Please check your connection and try again.',
+            });
         } finally {
             setLoading(false);
         }
@@ -651,13 +666,14 @@ const AddPropertyScreen = () => {
 
                     {/* Custom Alert */}
                     <CustomAlert
-                        visible={alertVisible}
+                        visible={alertConfig.visible}
                         type={alertConfig.type}
                         title={alertConfig.title}
                         message={alertConfig.message}
-                        onClose={() => setAlertVisible(false)}
+                        onClose={hideAlert}
                         onConfirm={alertConfig.onConfirm}
-                        confirmText={alertConfig.onConfirm ? 'Continue' : 'OK'}
+                        confirmText={alertConfig.confirmText}
+                        cancelText={alertConfig.cancelText}
                     />
                 </View>
             </KeyboardAvoidingView>

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { propertiesApi } from '../../lib/api'
-import { X, User } from 'lucide-react'
+import { adminApi } from '../../lib/api'
+import { X } from 'lucide-react'
 
 interface AssignFacilitatorModalProps {
   property: any
@@ -21,7 +21,7 @@ export default function AssignFacilitatorModal({
 
   const assignMutation = useMutation({
     mutationFn: (facilitatorId: string) =>
-      propertiesApi.assignFacilitator(property.id, facilitatorId),
+      adminApi.assignFacilitatorToProperty(property.id, facilitatorId),
     onSuccess: () => {
       onSuccess()
     },

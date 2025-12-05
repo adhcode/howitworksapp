@@ -238,7 +238,7 @@ export class NotificationScheduler {
         parseFloat(contract.monthlyAmount),
         contract.nextPaymentDue,
         daysUntilDue,
-        tenant.phoneNumber,
+        tenant.phoneNumber || undefined,
         pushToken
       );
 
