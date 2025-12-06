@@ -847,7 +847,7 @@ export class PaymentProcessorService {
       const recentTransactions = transactions?.slice(0, 5).map(t => ({
         type: t.type === 'credit' ? 'credit' : 'debit',
         description: t.description,
-        amount: parseFloat(t.amount),
+        amount: typeof t.amount === 'string' ? parseFloat(t.amount) : t.amount,
         date: t.createdAt,
       })) || [];
 
