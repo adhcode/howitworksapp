@@ -87,14 +87,8 @@ let LandlordService = class LandlordService {
             let outstandingRentTenants = 0;
             let fullyOccupied = 0;
             if (propertyIds.length > 0) {
-                // Get all units for all properties
-                for (const propertyId of propertyIds){
-                    const propertyUnits = await this.db.select().from(_schema.units).where((0, _drizzleorm.eq)(_schema.units.propertyId, propertyId));
-                    unitsData = [
-                        ...unitsData,
-                        ...propertyUnits
-                    ];
-                }
+                // Get all units for all properties in ONE query using inArray
+                unitsData = await this.db.select().from(_schema.units).where((0, _drizzleorm.inArray)(_schema.units.propertyId, propertyIds));
                 console.log('Units found:', unitsData.length, unitsData);
                 // Get all tenant invitations for this landlord directly
                 const allInvitations = await this.db.select().from(_schema.tenantInvitations).where((0, _drizzleorm.eq)(_schema.tenantInvitations.landlordId, landlordId));

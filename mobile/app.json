@@ -1,25 +1,35 @@
 {
   "expo": {
-    "scheme": "homezy",
-    "name": "homezy",
-    "slug": "homezy",
+    "scheme": "hiw-maintenance",
+    "name": "HIW Maintenance",
+    "slug": "hiw-maintenance",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
+    "icon": "./assets/splash.png",
     "splash": {
+       "image": "./assets/splash.png",
+
       "resizeMode": "contain",
-      "backgroundColor": "#3B82F6"
+      "backgroundColor": "#FFFFFF"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.adhcode.homezy"
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#3B82F6"
+        "foregroundImage": "./assets/splash.png",
+        "backgroundColor": "#FFFFFF"
       },
-      "edgeToEdgeEnabled": true,
-      "package": "com.adhcode.homezy"
+      "package": "com.adhcode.homezy",
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "NOTIFICATIONS"
+      ]
     },
     "web": {
       "bundler": "metro"

@@ -21,6 +21,8 @@ export const users = pgTable('users', {
   emailVerificationCodeExpires: timestamp('email_verification_code_expires'),
   passwordResetToken: varchar('password_reset_token', { length: 255 }),
   passwordResetExpires: timestamp('password_reset_expires'),
+  passwordResetCode: varchar('password_reset_code', { length: 6 }),
+  passwordResetCodeExpires: timestamp('password_reset_code_expires'),
   
   // Paystack payment fields (for tenants - recurring payments)
   paystackAuthorizationCode: varchar('paystack_authorization_code', { length: 255 }),

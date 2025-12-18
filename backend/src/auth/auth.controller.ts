@@ -126,4 +126,22 @@ export class AuthController {
   async resetPassword(@Body() resetPasswordDto: ResetPasswordDto): Promise<{ message: string }> {
     return this.authService.resetPassword(resetPasswordDto.token, resetPasswordDto.password);
   }
+
+  @Post('verify-reset-code')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Verify password reset code' })
+  @ApiResponse({ status: 200, description: 'Reset code verified successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid or expired code' })
+  async verifyResetCode(@Body() body: { email: string; code: string }): Promise<{ message: string; valid: boolean }> {
+    return this.authService.verifyResetCode(body.email, body.code);
+  }
+
+  @Post('reset-password-with-code')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Reset password with verification code' })
+  @ApiResponse({ status: 200, description: 'Password reset successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid or expired code' })
+  async resetPasswordWithCode(@Body() body: { email: string; code: string; password: string }): Promise<{ message: string }> {
+    return this.authService.resetPasswordWithCode(body.email, body.code, body.password);
+  }
 }

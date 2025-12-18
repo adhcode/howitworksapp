@@ -15,7 +15,7 @@ const SplashScreen = () => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: 1000,
+        duration: 800,
         useNativeDriver: true,
       }),
       Animated.spring(scaleAnim, {
@@ -26,16 +26,32 @@ const SplashScreen = () => {
       }),
     ]).start();
 
+    // Pulse animation for loading bar
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(fadeAnim, {
+          toValue: 0.3,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
     // Navigate to welcome screen after animation with fade out
     const timer = setTimeout(() => {
       Animated.timing(fadeAnim, {
         toValue: 0,
-        duration: 300,
+        duration: 400,
         useNativeDriver: true,
       }).start(() => {
         router.replace('/auth/welcome');
       });
-    }, 2200);
+    }, 2500);
 
     return () => clearTimeout(timer);
   }, []);
@@ -43,7 +59,7 @@ const SplashScreen = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        <Animated.View 
+        <Animated.View
           style={[
             styles.logoContainer,
             {
@@ -54,7 +70,7 @@ const SplashScreen = () => {
         >
           {!logoError ? (
             <Image
-              source={require('./assets/images/HIWLogo.png')}
+              source={require('../assets/splash.png')}
               style={styles.logo}
               resizeMode="contain"
               onError={() => setLogoError(true)}
@@ -64,8 +80,20 @@ const SplashScreen = () => {
               <Text style={styles.logoFallbackText}>HIW</Text>
             </View>
           )}
-          <Text style={styles.brandName}>HowitWorks</Text>
-          <Text style={styles.tagline}>Home Maintenance Made Simple</Text>
+          <Text style={styles.brandName}>HIW Maintenance</Text>
+          <Text style={styles.tagline}>Smart Property Care</Text>
+          <View style={styles.loadingContainer}>
+            <View style={styles.loadingBar}>
+              <Animated.View 
+                style={[
+                  styles.loadingProgress,
+                  {
+                    opacity: fadeAnim,
+                  }
+                ]} 
+              />
+            </View>
+          </View>
         </Animated.View>
       </View>
     </SafeAreaView>
@@ -113,6 +141,24 @@ const styles = StyleSheet.create({
     fontFamily: 'Outfit_400Regular',
     color: '#666666',
     textAlign: 'center',
+    marginBottom: 40,
+  },
+  loadingContainer: {
+    width: '100%',
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  loadingBar: {
+    width: 200,
+    height: 4,
+    backgroundColor: '#E1E1E1',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  loadingProgress: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: colors.secondary,
   },
 });
 

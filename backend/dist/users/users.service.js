@@ -127,12 +127,32 @@ let UsersService = class UsersService {
         const [updatedUser] = await this.db.update(_schema.users).set({
             passwordResetToken: null,
             passwordResetExpires: null,
+            passwordResetCode: null,
+            passwordResetCodeExpires: null,
             updatedAt: new Date()
         }).where((0, _drizzleorm.eq)(_schema.users.id, id)).returning();
         if (!updatedUser) {
             throw new _common.NotFoundException('User not found');
         }
         return updatedUser;
+    }
+    async updatePasswordResetCode(id, code, expiresAt) {
+        const [updatedUser] = await this.db.update(_schema.users).set({
+            passwordResetCode: code,
+            passwordResetCodeExpires: expiresAt,
+            updatedAt: new Date()
+        }).where((0, _drizzleorm.eq)(_schema.users.id, id)).returning();
+        if (!updatedUser) {
+            throw new _common.NotFoundException('User not found');
+        }
+        return updatedUser;
+    }
+    async findByPasswordResetCode(email, code) {
+        const [user] = await this.db.select().from(_schema.users).where((0, _drizzleorm.eq)(_schema.users.email, email));
+        if (!user || user.passwordResetCode !== code) {
+            return null;
+        }
+        return user;
     }
     constructor(db){
         this.db = db;

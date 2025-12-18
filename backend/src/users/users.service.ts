@@ -162,6 +162,8 @@ export class UsersService {
       .set({ 
         passwordResetToken: null,
         passwordResetExpires: null,
+        passwordResetCode: null,
+        passwordResetCodeExpires: null,
         updatedAt: new Date() 
       })
       .where(eq(users.id, id))
@@ -172,5 +174,36 @@ export class UsersService {
     }
 
     return updatedUser;
+  }
+
+  async updatePasswordResetCode(id: string, code: string, expiresAt: Date): Promise<User> {
+    const [updatedUser] = await this.db
+      .update(users)
+      .set({ 
+        passwordResetCode: code,
+        passwordResetCodeExpires: expiresAt,
+        updatedAt: new Date() 
+      })
+      .where(eq(users.id, id))
+      .returning();
+
+    if (!updatedUser) {
+      throw new NotFoundException('User not found');
+    }
+
+    return updatedUser;
+  }
+
+  async findByPasswordResetCode(email: string, code: string): Promise<User | null> {
+    const [user] = await this.db
+      .select()
+      .from(users)
+      .where(eq(users.email, email));
+    
+    if (!user || user.passwordResetCode !== code) {
+      return null;
+    }
+    
+    return user;
   }
 }

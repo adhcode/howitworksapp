@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import {
   StyleSheet,
   View,
@@ -8,21 +8,39 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import colors from '../theme/colors';
 import { useNotifications } from '../context/NotificationContext';
+import { useAuth } from '../context/AuthContext';
 
 const NotificationsScreen = () => {
   const router = useRouter();
-  const { notifications, markAsRead, markAllAsRead, clearNotifications } = useNotifications();
+  const { notifications, markAsRead, markAllAsRead, clearNotifications, loadNotifications } = useNotifications();
+  const { user } = useAuth();
+
+  // Reload notifications when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      console.log('🔔 NotificationsScreen focused');
+      console.log('📊 Current notifications count:', notifications.length);
+      
+      // Reload notifications from backend
+      if (user?.id) {
+        console.log('🔄 Reloading notifications for user:', user.id);
+        loadNotifications(user.id);
+      }
+    }, [user?.id, loadNotifications])
+  );
 
   useEffect(() => {
+    console.log('📊 Notifications updated, count:', notifications.length);
+    
     // Mark all as read when user opens notifications
     if (notifications.some(n => !n.isRead)) {
       markAllAsRead();
     }
-  }, []);
+  }, [notifications]);
 
   const handleClearAll = () => {
     Alert.alert(

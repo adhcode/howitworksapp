@@ -36,14 +36,11 @@ export class LandlordService {
       let fullyOccupied = 0;
 
       if (propertyIds.length > 0) {
-        // Get all units for all properties
-        for (const propertyId of propertyIds) {
-          const propertyUnits = await this.db
-            .select()
-            .from(units)
-            .where(eq(units.propertyId, propertyId));
-          unitsData = [...unitsData, ...propertyUnits];
-        }
+        // Get all units for all properties in ONE query using inArray
+        unitsData = await this.db
+          .select()
+          .from(units)
+          .where(inArray(units.propertyId, propertyIds));
 
         console.log('Units found:', unitsData.length, unitsData);
 

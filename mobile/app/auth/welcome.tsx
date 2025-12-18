@@ -55,11 +55,15 @@ const WelcomeScreen = () => {
               <Text style={styles.logoFallbackText}>HIW</Text>
             </View>
           )}
-          <Text style={styles.brandName}>HowitWorks</Text>
+          <Text style={styles.brandName}>HIW Maintenance</Text>
           {tenantName ? (
             <Text style={styles.personalizedTagline}>Welcome back, {tenantName}!</Text>
           ) : (
-            <Text style={styles.tagline}>Home Maintenance App</Text>
+            <Text style={styles.tagline}>Smart Property Care</Text>
+          )}
+          {!tenantName && (
+            <Text style={styles.description}>
+            </Text>
           )}
         </View>
 
@@ -131,9 +135,18 @@ const styles = StyleSheet.create({
   },
   tagline: {
     fontSize: 18,
+    fontFamily: 'Outfit_500Medium',
+    color: colors.secondary,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  description: {
+    fontSize: 15,
     fontFamily: 'Outfit_400Regular',
     color: '#666666',
     textAlign: 'center',
+    lineHeight: 22,
+    paddingHorizontal: 20,
   },
   personalizedTagline: {
     fontSize: 20,
@@ -149,10 +162,18 @@ const styles = StyleSheet.create({
   createAccountButton: {
     backgroundColor: colors.secondary,
     borderRadius: 12,
-    paddingVertical: 16,
+    paddingVertical: 18,
     paddingHorizontal: 32,
     width: '100%',
     alignItems: 'center',
+    shadowColor: colors.secondary,
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
   createAccountButtonText: {
     fontSize: 16,
@@ -168,6 +189,10 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 32,
     alignItems: 'center',
+    borderWidth: 2,
+    borderColor: colors.primary,
+    borderRadius: 12,
+    width: '100%',
   },
   loginButtonText: {
     fontSize: 16,

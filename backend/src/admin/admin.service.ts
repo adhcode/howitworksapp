@@ -35,12 +35,25 @@ export class AdminService {
       const [propertyStats] = await this.db
         .select({
           totalProperties: count(),
-          totalUnits: sql<number>`sum(total_units)`,
         })
         .from(properties);
 
+      // Get actual units count from units table (not from properties.totalUnits)
+      const [unitsStats] = await this.db
+        .select({
+          totalUnits: count(),
+        })
+        .from(units);
+
+      // Get occupied units (units with accepted tenant invitations)
+      const [occupiedUnitsStats] = await this.db
+        .select({
+          occupiedUnits: count(),
+        })
+        .from(tenantInvitations)
+        .where(eq(tenantInvitations.status, 'accepted'));
+
       // TODO: Get more complex stats from other tables when available:
-      // - occupiedUnits from leases/units table
       // - totalRentCollected from payments table  
       // - pendingPayments from payments table
       // - activeMaintenanceRequests from maintenance_requests table
@@ -60,6 +73,9 @@ export class AdminService {
         })
         .from(properties);
 
+      const totalUnits = Number(unitsStats?.totalUnits || 0);
+      const occupiedUnits = Number(occupiedUnitsStats?.occupiedUnits || 0);
+
       const stats = {
         totalProperties: Number(propertyStats?.totalProperties || 0),
         totalLandlords: Number(userStats?.totalLandlords || 0),
@@ -67,9 +83,9 @@ export class AdminService {
         totalFacilitators: Number(facilitatorStats?.totalFacilitators || 0),
         activeFacilitators: Number(facilitatorStats?.activeFacilitators || 0),
         propertiesWithFacilitators: Number(facilitatorPropertyStats?.propertiesWithFacilitators || 0),
-        totalUnits: Number(propertyStats?.totalUnits || 0),
-        occupiedUnits: 0, // TODO: Calculate from lease/tenant data when available
-        vacantUnits: Number(propertyStats?.totalUnits || 0), // For now, assume all units are vacant
+        totalUnits, // Count from actual units table
+        occupiedUnits, // Count units with accepted tenant invitations
+        vacantUnits: totalUnits - occupiedUnits, // Calculate vacant units
         totalRentCollected: 0, // TODO: Calculate from payments table when available
         pendingPayments: 0, // TODO: Calculate from payments table when available
         activeMaintenanceRequests: 0, // TODO: Calculate from maintenance_requests table when available
@@ -248,11 +264,41 @@ export class AdminService {
 
       const total = totalResult[0]?.count || 0;
 
+      // If fetching landlords, add properties count for each
+      let enrichedData = data.map(user => {
+        const { password, ...userWithoutPassword } = user;
+        return userWithoutPassword;
+      });
+
+      if (role === 'landlord') {
+        // Get properties count for each landlord
+        const landlordIds = enrichedData.map(u => u.id);
+        if (landlordIds.length > 0) {
+          const propertiesCounts = await this.db
+            .select({
+              landlordId: properties.landlordId,
+              count: count(),
+            })
+            .from(properties)
+            .where(inArray(properties.landlordId, landlordIds))
+            .groupBy(properties.landlordId);
+
+          const countsMap = new Map(propertiesCounts.map(pc => [pc.landlordId, Number(pc.count)]));
+          
+          enrichedData = enrichedData.map(user => ({
+            ...user,
+            propertiesCount: countsMap.get(user.id) || 0,
+          }));
+        } else {
+          enrichedData = enrichedData.map(user => ({
+            ...user,
+            propertiesCount: 0,
+          }));
+        }
+      }
+
       return {
-        data: data.map(user => {
-          const { password, ...userWithoutPassword } = user;
-          return userWithoutPassword;
-        }),
+        data: enrichedData,
         meta: {
           page,
           limit,
@@ -916,18 +962,59 @@ export class AdminService {
           }
         }
 
+        // Get facilitator info from property
+        let facilitatorName = 'No facilitator assigned';
+        let facilitatorEmail: string | null = null;
+        let facilitatorPhone: string | null = null;
+        try {
+          const [property] = await this.db
+            .select({
+              facilitatorId: properties.facilitatorId,
+            })
+            .from(properties)
+            .where(eq(properties.id, request.propertyId))
+            .limit(1);
+          
+          if (property?.facilitatorId) {
+            const [facilitator] = await this.db
+              .select({
+                firstName: users.firstName,
+                lastName: users.lastName,
+                email: users.email,
+                phoneNumber: users.phoneNumber,
+              })
+              .from(users)
+              .where(eq(users.id, property.facilitatorId))
+              .limit(1);
+            
+            if (facilitator) {
+              facilitatorName = `${facilitator.firstName} ${facilitator.lastName}`;
+              facilitatorEmail = facilitator.email;
+              facilitatorPhone = facilitator.phoneNumber;
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching facilitator:', error);
+        }
+
         transformedData.push({
           id: request.id,
           issue: request.title,
+          title: request.title,
           description: request.description,
           status: request.status,
           priority: request.priority || 'medium',
           images: request.images || [],
           propertyName: request.propertyName,
           propertyId: request.propertyId,
+          reportedBy: tenantName,
           tenant: tenantName,
+          unitNumber: unitNumber,
           unit: unitNumber,
           assignedAdmin,
+          facilitatorName,
+          facilitatorEmail,
+          facilitatorPhone,
           createdAt: request.createdAt,
           resolvedAt: request.status === 'completed' ? request.completedAt : null,
         });

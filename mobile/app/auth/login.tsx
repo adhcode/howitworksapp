@@ -142,7 +142,10 @@ const LoginScreen = () => {
                             </View>
                         </View>
 
-                        <TouchableOpacity style={styles.forgotPassword}>
+                        <TouchableOpacity 
+                            style={styles.forgotPassword}
+                            onPress={() => router.push('/auth/forgot-password')}
+                        >
                             <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
                         </TouchableOpacity>
                     </View>
@@ -253,6 +256,7 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
         fontSize: 16,
         fontFamily: 'Outfit_400Regular',
+        letterSpacing: 0,
     },
     eyeButton: {
         padding: 12,

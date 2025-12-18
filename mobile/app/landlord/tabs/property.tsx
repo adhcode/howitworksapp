@@ -260,11 +260,9 @@ const PropertyScreen = () => {
                           }}
                         />
                       ) : (
-                        <Image
-                          source={require('../../assets/images/house.png')}
-                          style={styles.propertyImage}
-                          resizeMode="cover"
-                        />
+                        <View style={[styles.propertyImage, styles.defaultImageContainer]}>
+                          <MaterialIcons name="home" size={64} color="#E1E1E1" />
+                        </View>
                       )}
                       <View style={styles.imageOverlay}>
                         <View style={styles.statusBadge}>
@@ -427,6 +425,11 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     backgroundColor: '#f0f0f0',
+  },
+  defaultImageContainer: {
+    backgroundColor: '#F9FAFB',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   imageOverlay: {
     position: 'absolute',

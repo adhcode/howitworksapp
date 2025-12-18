@@ -330,19 +330,19 @@ export class AuthService {
       };
     }
 
-    // Generate password reset token
-    const resetToken = crypto.randomBytes(32).toString('hex');
-    const resetExpires = new Date(Date.now() + 3600000); // 1 hour from now
+    // Generate 6-digit password reset code
+    const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const resetExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
 
-    // Store reset token
-    await this.usersService.updatePasswordResetToken(user.id, resetToken, resetExpires);
+    // Store reset code
+    await this.usersService.updatePasswordResetCode(user.id, resetCode, resetExpires);
 
-    // Send password reset email
+    // Send password reset email with code
     try {
-      await this.emailService.sendPasswordResetEmail(
+      await this.emailService.sendPasswordResetCodeEmail(
         user.email,
         user.firstName,
-        resetToken
+        resetCode
       );
     } catch (error) {
       console.error('Failed to send password reset email:', error);
@@ -370,6 +370,48 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(newPassword, 12);
 
     // Update password and clear reset token
+    await this.usersService.update(user.id, { password: hashedPassword });
+    await this.usersService.clearPasswordResetToken(user.id);
+
+    return {
+      message: 'Password has been reset successfully. You can now log in with your new password.',
+    };
+  }
+
+  async verifyResetCode(email: string, code: string): Promise<{ message: string; valid: boolean }> {
+    const user = await this.usersService.findByPasswordResetCode(email, code);
+    
+    if (!user) {
+      throw new BadRequestException('Invalid reset code');
+    }
+
+    // Check if code has expired
+    if (!user.passwordResetCodeExpires || user.passwordResetCodeExpires < new Date()) {
+      throw new BadRequestException('Reset code has expired. Please request a new one.');
+    }
+
+    return {
+      message: 'Reset code verified successfully',
+      valid: true,
+    };
+  }
+
+  async resetPasswordWithCode(email: string, code: string, newPassword: string): Promise<{ message: string }> {
+    const user = await this.usersService.findByPasswordResetCode(email, code);
+    
+    if (!user) {
+      throw new BadRequestException('Invalid reset code');
+    }
+
+    // Check if code has expired
+    if (!user.passwordResetCodeExpires || user.passwordResetCodeExpires < new Date()) {
+      throw new BadRequestException('Reset code has expired. Please request a new one.');
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+
+    // Update password and clear reset code
     await this.usersService.update(user.id, { password: hashedPassword });
     await this.usersService.clearPasswordResetToken(user.id);
 

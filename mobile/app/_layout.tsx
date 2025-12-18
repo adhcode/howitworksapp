@@ -38,7 +38,7 @@ export default function RootLayout() {
         return (
             <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color={colors.secondary} />
-                <Text style={styles.loadingText}>Loading Homezy...</Text>
+                <Text style={styles.loadingText}>Loading HIW Maintenance...</Text>
             </View>
         );
     }

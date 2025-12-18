@@ -119,7 +119,7 @@ export const maintenanceApi = {
 // Landlords API
 export const landlordsApi = {
   getAll: async () => {
-    const response = await api.get('/users?role=landlord')
+    const response = await api.get('/admin/users?role=landlord&limit=100')
     return response.data
   },
   getById: async (id: string) => {
@@ -132,6 +132,14 @@ export const landlordsApi = {
 export const adminApi = {
   getDashboardStats: async () => {
     const response = await api.get('/admin/dashboard/stats')
+    return response.data
+  },
+  getRevenueAnalytics: async (timeframe: string = '6m') => {
+    const response = await api.get(`/admin/analytics/revenue?timeframe=${timeframe}`)
+    return response.data
+  },
+  getMaintenanceAnalytics: async (timeframe: string = '6m') => {
+    const response = await api.get(`/admin/analytics/maintenance?timeframe=${timeframe}`)
     return response.data
   },
   getProperties: async (page = 1, limit = 50) => {

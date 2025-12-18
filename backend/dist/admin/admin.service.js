@@ -18,6 +18,7 @@ const _properties = require("../database/schema/properties");
 const _payments = require("../database/schema/payments");
 const _messages = require("../database/schema/messages");
 const _leases = require("../database/schema/leases");
+const _tenantinvitations = require("../database/schema/tenant-invitations");
 function _getRequireWildcardCache(nodeInterop) {
     if (typeof WeakMap !== "function") return null;
     var cacheBabelInterop = new WeakMap();
@@ -85,11 +86,17 @@ let AdminService = class AdminService {
             }).from(_users.users);
             // Get property stats
             const [propertyStats] = await this.db.select({
-                totalProperties: (0, _drizzleorm.count)(),
-                totalUnits: (0, _drizzleorm.sql)`sum(total_units)`
+                totalProperties: (0, _drizzleorm.count)()
             }).from(_properties.properties);
+            // Get actual units count from units table (not from properties.totalUnits)
+            const [unitsStats] = await this.db.select({
+                totalUnits: (0, _drizzleorm.count)()
+            }).from(_properties.units);
+            // Get occupied units (units with accepted tenant invitations)
+            const [occupiedUnitsStats] = await this.db.select({
+                occupiedUnits: (0, _drizzleorm.count)()
+            }).from(_tenantinvitations.tenantInvitations).where((0, _drizzleorm.eq)(_tenantinvitations.tenantInvitations.status, 'accepted'));
             // TODO: Get more complex stats from other tables when available:
-            // - occupiedUnits from leases/units table
             // - totalRentCollected from payments table  
             // - pendingPayments from payments table
             // - activeMaintenanceRequests from maintenance_requests table
@@ -102,6 +109,8 @@ let AdminService = class AdminService {
             const [facilitatorPropertyStats] = await this.db.select({
                 propertiesWithFacilitators: (0, _drizzleorm.sql)`count(case when facilitator_id is not null then 1 end)`
             }).from(_properties.properties);
+            const totalUnits = Number(unitsStats?.totalUnits || 0);
+            const occupiedUnits = Number(occupiedUnitsStats?.occupiedUnits || 0);
             const stats = {
                 totalProperties: Number(propertyStats?.totalProperties || 0),
                 totalLandlords: Number(userStats?.totalLandlords || 0),
@@ -109,9 +118,9 @@ let AdminService = class AdminService {
                 totalFacilitators: Number(facilitatorStats?.totalFacilitators || 0),
                 activeFacilitators: Number(facilitatorStats?.activeFacilitators || 0),
                 propertiesWithFacilitators: Number(facilitatorPropertyStats?.propertiesWithFacilitators || 0),
-                totalUnits: Number(propertyStats?.totalUnits || 0),
-                occupiedUnits: 0,
-                vacantUnits: Number(propertyStats?.totalUnits || 0),
+                totalUnits,
+                occupiedUnits,
+                vacantUnits: totalUnits - occupiedUnits,
                 totalRentCollected: 0,
                 pendingPayments: 0,
                 activeMaintenanceRequests: 0
@@ -237,11 +246,36 @@ let AdminService = class AdminService {
                 countQuery
             ]);
             const total = totalResult[0]?.count || 0;
+            // If fetching landlords, add properties count for each
+            let enrichedData = data.map((user)=>{
+                const { password, ...userWithoutPassword } = user;
+                return userWithoutPassword;
+            });
+            if (role === 'landlord') {
+                // Get properties count for each landlord
+                const landlordIds = enrichedData.map((u)=>u.id);
+                if (landlordIds.length > 0) {
+                    const propertiesCounts = await this.db.select({
+                        landlordId: _properties.properties.landlordId,
+                        count: (0, _drizzleorm.count)()
+                    }).from(_properties.properties).where((0, _drizzleorm.inArray)(_properties.properties.landlordId, landlordIds)).groupBy(_properties.properties.landlordId);
+                    const countsMap = new Map(propertiesCounts.map((pc)=>[
+                            pc.landlordId,
+                            Number(pc.count)
+                        ]));
+                    enrichedData = enrichedData.map((user)=>({
+                            ...user,
+                            propertiesCount: countsMap.get(user.id) || 0
+                        }));
+                } else {
+                    enrichedData = enrichedData.map((user)=>({
+                            ...user,
+                            propertiesCount: 0
+                        }));
+                }
+            }
             return {
-                data: data.map((user)=>{
-                    const { password, ...userWithoutPassword } = user;
-                    return userWithoutPassword;
-                }),
+                data: enrichedData,
                 meta: {
                     page,
                     limit,
@@ -706,18 +740,48 @@ let AdminService = class AdminService {
                         console.error('Error fetching admin:', error);
                     }
                 }
+                // Get facilitator info from property
+                let facilitatorName = 'No facilitator assigned';
+                let facilitatorEmail = null;
+                let facilitatorPhone = null;
+                try {
+                    const [property] = await this.db.select({
+                        facilitatorId: _properties.properties.facilitatorId
+                    }).from(_properties.properties).where((0, _drizzleorm.eq)(_properties.properties.id, request.propertyId)).limit(1);
+                    if (property?.facilitatorId) {
+                        const [facilitator] = await this.db.select({
+                            firstName: _users.users.firstName,
+                            lastName: _users.users.lastName,
+                            email: _users.users.email,
+                            phoneNumber: _users.users.phoneNumber
+                        }).from(_users.users).where((0, _drizzleorm.eq)(_users.users.id, property.facilitatorId)).limit(1);
+                        if (facilitator) {
+                            facilitatorName = `${facilitator.firstName} ${facilitator.lastName}`;
+                            facilitatorEmail = facilitator.email;
+                            facilitatorPhone = facilitator.phoneNumber;
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error fetching facilitator:', error);
+                }
                 transformedData.push({
                     id: request.id,
                     issue: request.title,
+                    title: request.title,
                     description: request.description,
                     status: request.status,
                     priority: request.priority || 'medium',
                     images: request.images || [],
                     propertyName: request.propertyName,
                     propertyId: request.propertyId,
+                    reportedBy: tenantName,
                     tenant: tenantName,
+                    unitNumber: unitNumber,
                     unit: unitNumber,
                     assignedAdmin,
+                    facilitatorName,
+                    facilitatorEmail,
+                    facilitatorPhone,
                     createdAt: request.createdAt,
                     resolvedAt: request.status === 'completed' ? request.completedAt : null
                 });

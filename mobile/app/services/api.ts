@@ -3,13 +3,13 @@ import { AuthResponse, HealthResponse, Property, User } from '../types/api';
 // Configuration
 const config = {
   development: {
-    baseURL: 'http://172.20.10.6:3003', // Local development backend
-    timeout: 15000,
+    baseURL: 'http://192.168.1.18:3003', // Local development backend
+    timeout: 45000, // Increased to 45 seconds for slow queries
     enableLogging: true,
   },
   production: {
     baseURL: 'https://howitworksapp-production.up.railway.app',
-    timeout: 15000,
+    timeout: 45000, // Increased to 45 seconds for slow queries
     enableLogging: false,
   },
 };
@@ -142,13 +142,19 @@ class ApiService {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.config.timeout);
 
+    // Only set Content-Type if there's a body
+    const headers: Record<string, string> = {
+      ...(token && { Authorization: `Bearer ${token}` }),
+      ...options.headers,
+    };
+    
+    if (options.body) {
+      headers['Content-Type'] = 'application/json';
+    }
+
     const config: RequestInit = {
       signal: controller.signal,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token && { Authorization: `Bearer ${token}` }),
-        ...options.headers,
-      },
+      headers,
       ...options,
     };
 
@@ -251,6 +257,34 @@ class ApiService {
     return this.request<{ message: string }>('/auth/resend-verification', {
       method: 'POST',
       body: JSON.stringify({ email }),
+    });
+  }
+
+  async forgotPassword(email: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+  }
+
+  async verifyResetCode(email: string, code: string): Promise<{ message: string; valid: boolean }> {
+    return this.request<{ message: string; valid: boolean }>('/auth/verify-reset-code', {
+      method: 'POST',
+      body: JSON.stringify({ email, code }),
+    });
+  }
+
+  async resetPasswordWithCode(email: string, code: string, password: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>('/auth/reset-password-with-code', {
+      method: 'POST',
+      body: JSON.stringify({ email, code, password }),
+    });
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ token, newPassword }),
     });
   }
 
@@ -989,6 +1023,12 @@ class ApiService {
 
   async getUnreadNotificationCount() {
     return this.request('/notifications/unread-count');
+  }
+
+  async markAllNotificationsAsRead() {
+    return this.request('/notifications/mark-all-read', {
+      method: 'PATCH',
+    });
   }
 
   // Health check

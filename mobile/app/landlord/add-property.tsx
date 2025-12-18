@@ -121,7 +121,7 @@ const AddPropertyScreen = () => {
 
         try {
             const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                mediaTypes: ['images'],
                 allowsMultipleSelection: true,
                 quality: 0.6, // Reduced quality for better compression
                 allowsEditing: false,
@@ -161,15 +161,20 @@ const AddPropertyScreen = () => {
     const takePhoto = async () => {
         const { status } = await ImagePicker.requestCameraPermissionsAsync();
         if (status !== 'granted') {
-            showAlert('warning', 'Permission Required', 'Please grant camera permissions to take photos.');
+            showAlert({
+                type: 'warning',
+                title: 'Permission Required',
+                message: 'Please grant camera permissions to take photos.',
+            });
             return;
         }
 
         try {
             const result = await ImagePicker.launchCameraAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                mediaTypes: ['images'],
                 quality: 0.6, // Reduced quality for better compression
                 allowsEditing: true,
+                aspect: [4, 3],
             });
 
             if (!result.canceled && result.assets && result.assets[0]) {

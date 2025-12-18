@@ -64,6 +64,10 @@ const users = (0, _pgcore.pgTable)('users', {
         length: 255
     }),
     passwordResetExpires: (0, _pgcore.timestamp)('password_reset_expires'),
+    passwordResetCode: (0, _pgcore.varchar)('password_reset_code', {
+        length: 6
+    }),
+    passwordResetCodeExpires: (0, _pgcore.timestamp)('password_reset_code_expires'),
     // Paystack payment fields (for tenants - recurring payments)
     paystackAuthorizationCode: (0, _pgcore.varchar)('paystack_authorization_code', {
         length: 255

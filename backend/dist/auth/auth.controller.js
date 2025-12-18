@@ -79,6 +79,12 @@ let AuthController = class AuthController {
     async resetPassword(resetPasswordDto) {
         return this.authService.resetPassword(resetPasswordDto.token, resetPasswordDto.password);
     }
+    async verifyResetCode(body) {
+        return this.authService.verifyResetCode(body.email, body.code);
+    }
+    async resetPasswordWithCode(body) {
+        return this.authService.resetPasswordWithCode(body.email, body.code, body.password);
+    }
     constructor(authService){
         this.authService = authService;
     }
@@ -325,6 +331,48 @@ _ts_decorate([
     ]),
     _ts_metadata("design:returntype", Promise)
 ], AuthController.prototype, "resetPassword", null);
+_ts_decorate([
+    (0, _common.Post)('verify-reset-code'),
+    (0, _common.HttpCode)(_common.HttpStatus.OK),
+    (0, _swagger.ApiOperation)({
+        summary: 'Verify password reset code'
+    }),
+    (0, _swagger.ApiResponse)({
+        status: 200,
+        description: 'Reset code verified successfully'
+    }),
+    (0, _swagger.ApiResponse)({
+        status: 400,
+        description: 'Invalid or expired code'
+    }),
+    _ts_param(0, (0, _common.Body)()),
+    _ts_metadata("design:type", Function),
+    _ts_metadata("design:paramtypes", [
+        Object
+    ]),
+    _ts_metadata("design:returntype", Promise)
+], AuthController.prototype, "verifyResetCode", null);
+_ts_decorate([
+    (0, _common.Post)('reset-password-with-code'),
+    (0, _common.HttpCode)(_common.HttpStatus.OK),
+    (0, _swagger.ApiOperation)({
+        summary: 'Reset password with verification code'
+    }),
+    (0, _swagger.ApiResponse)({
+        status: 200,
+        description: 'Password reset successfully'
+    }),
+    (0, _swagger.ApiResponse)({
+        status: 400,
+        description: 'Invalid or expired code'
+    }),
+    _ts_param(0, (0, _common.Body)()),
+    _ts_metadata("design:type", Function),
+    _ts_metadata("design:paramtypes", [
+        Object
+    ]),
+    _ts_metadata("design:returntype", Promise)
+], AuthController.prototype, "resetPasswordWithCode", null);
 AuthController = _ts_decorate([
     (0, _swagger.ApiTags)('Authentication'),
     (0, _common.Controller)('auth'),

@@ -47,10 +47,14 @@ export default function TenantManagementScreen() {
       ]);
 
       // Extract tenants array
-      const allTenants = Array.isArray(tenantsResponse) ? tenantsResponse : (tenantsResponse.data || []);
+      const allTenants = Array.isArray(tenantsResponse)
+        ? tenantsResponse
+        : ((tenantsResponse as any)?.data || []);
 
       // Extract properties array - API service already extracts nested data
-      const allProperties = Array.isArray(propertiesResponse) ? propertiesResponse : (propertiesResponse.data || []);
+      const allProperties = Array.isArray(propertiesResponse)
+        ? propertiesResponse
+        : ((propertiesResponse as any)?.data || []);
 
       if (allProperties.length === 0) {
         setProperties([]);
@@ -200,17 +204,6 @@ export default function TenantManagementScreen() {
             </View>
           )}
 
-          {/* Debug Info */}
-          <View style={{ backgroundColor: '#f0f0f0', padding: 10, marginBottom: 16, borderRadius: 8 }}>
-            <Text style={{ fontSize: 12, fontFamily: 'Outfit_600SemiBold' }}>Debug Info:</Text>
-            <Text style={{ fontSize: 10, fontFamily: 'Outfit_400Regular' }}>
-              Properties: {properties.length} |
-              Total Tenants: {totalStats.totalTenants} |
-              Loading: {loading ? 'Yes' : 'No'} |
-              Error: {error || 'None'}
-            </Text>
-          </View>
-
           {/* Properties Section */}
           <View style={styles.propertiesSection}>
             <Text style={styles.sectionTitle}>Properties with Tenants ({properties.length})</Text>
@@ -248,11 +241,9 @@ export default function TenantManagementScreen() {
                           }}
                         />
                       ) : (
-                        <Image
-                          source={require('../../assets/images/house.png')}
-                          style={styles.propertyImage}
-                          resizeMode="cover"
-                        />
+                        <View style={[styles.propertyImage, styles.defaultImageContainer]}>
+                          <MaterialIcons name="home" size={64} color="#E1E1E1" />
+                        </View>
                       )}
                       <View style={styles.imageOverlay}>
                         <View style={styles.statusBadge}>
@@ -440,6 +431,11 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     backgroundColor: '#f0f0f0',
+  },
+  defaultImageContainer: {
+    backgroundColor: '#F9FAFB',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   placeholderImage: {
     width: '100%',

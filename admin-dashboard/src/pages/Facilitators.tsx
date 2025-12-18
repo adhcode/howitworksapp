@@ -2,11 +2,14 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { adminApi, facilitatorsApi } from '../lib/api'
 import { Plus, Trash2, Eye, Users } from 'lucide-react'
+import { useToast } from '../hooks/useToast'
+import { CardSkeleton } from '../components/ui/Skeleton'
 import CreateFacilitatorModal from '../components/facilitators/CreateFacilitatorModal'
 import FacilitatorDetailsModal from '../components/facilitators/FacilitatorDetailsModal'
 
 export default function Facilitators() {
   const queryClient = useQueryClient()
+  const toast = useToast()
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [selectedFacilitator, setSelectedFacilitator] = useState<any>(null)
   const [showDetailsModal, setShowDetailsModal] = useState(false)
@@ -20,6 +23,10 @@ export default function Facilitators() {
     mutationFn: facilitatorsApi.delete,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['facilitators'] })
+      toast.success('Facilitator deleted successfully')
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to delete facilitator')
     },
   })
 
@@ -32,14 +39,6 @@ export default function Facilitators() {
   const handleViewDetails = (facilitator: any) => {
     setSelectedFacilitator(facilitator)
     setShowDetailsModal(true)
-  }
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-      </div>
-    )
   }
 
   return (
@@ -60,8 +59,18 @@ export default function Facilitators() {
 
       {/* Facilitators Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {data?.data?.map((facilitator: any) => (
-          <div key={facilitator.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        {isLoading ? (
+          <>
+            <CardSkeleton />
+            <CardSkeleton />
+            <CardSkeleton />
+            <CardSkeleton />
+            <CardSkeleton />
+            <CardSkeleton />
+          </>
+        ) : (
+          data?.data?.map((facilitator: any) => (
+            <div key={facilitator.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <div className="flex items-start justify-between mb-4">
               <div className="flex items-center">
                 <div className="w-12 h-12 bg-primary-100 rounded-full flex items-center justify-center">
@@ -113,11 +122,12 @@ export default function Facilitators() {
                 <Trash2 className="w-4 h-4" />
               </button>
             </div>
-          </div>
-        ))}
+            </div>
+          ))
+        )}
       </div>
 
-      {data?.data?.length === 0 && (
+      {!isLoading && data?.data?.length === 0 && (
         <div className="text-center py-12">
           <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">No facilitators yet</h3>
