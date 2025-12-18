@@ -1,8 +1,8 @@
 {
   "expo": {
-    "scheme": "hiw-maintenance",
-    "name": "HIW Maintenance",
-    "slug": "hiw-maintenance",
+    "scheme": "homezy",
+    "name": "Homezy",
+    "slug": "homezy",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
