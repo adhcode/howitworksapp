@@ -72,15 +72,15 @@ async function bootstrap() {
   app.enableCors({
     origin: nodeEnv === 'production'
       ? [
-          'https://',
-          'capacitor://localhost',
-          'ionic://localhost',
-          'http://localhost',
-          'http://localhost:3000',
-          'http://localhost:3001', // Admin dashboard
-          'http://localhost:8081', // Mobile app
-          'http://localhost:8100',
-        ]
+        'capacitor://localhost',
+        'ionic://localhost',
+        'http://localhost',
+        'http://localhost:3000',
+        'http://localhost:3001', // Admin dashboard local
+        'http://localhost:8081', // Mobile app
+        'http://localhost:8100',
+        'https://sparkling-youthfulness-production-d703.up.railway.app', // Admin dashboard production
+      ]
       : true,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],

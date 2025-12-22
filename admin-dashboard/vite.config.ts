@@ -23,6 +23,8 @@ export default defineConfig({
   preview: {
     port: parseInt(process.env.PORT || '3001'),
     host: '0.0.0.0',
+    strictPort: true,
+    allowedHosts: ['all'], // Allow all hosts for Railway deployment
   },
   build: {
     outDir: 'dist',
