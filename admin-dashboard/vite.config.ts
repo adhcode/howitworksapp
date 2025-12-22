@@ -22,9 +22,8 @@ export default defineConfig({
   },
   preview: {
     port: parseInt(process.env.PORT || '3001'),
-    host: '0.0.0.0',
+    host: true, // Listen on all addresses including LAN and public
     strictPort: true,
-    allowedHosts: ['all'], // Allow all hosts for Railway deployment
   },
   build: {
     outDir: 'dist',
