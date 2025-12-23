@@ -79,7 +79,7 @@ async function bootstrap() {
         'http://localhost:3001', // Admin dashboard local
         'http://localhost:8081', // Mobile app
         'http://localhost:8100',
-        'https://sparkling-youthfulness-production-d703.up.railway.app', // Admin dashboard production
+        'https://howitworksapp.vercel.app', // Admin dashboard production (Vercel)
       ]
       : true,
     credentials: true,
