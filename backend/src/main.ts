@@ -80,6 +80,7 @@ async function bootstrap() {
         'http://localhost:8081', // Mobile app
         'http://localhost:8100',
         'https://howitworksapp.vercel.app', // Admin dashboard production (Vercel)
+        'https://app.howitworks.com.ng', // Admin dashboard custom domain
       ]
       : true,
     credentials: true,

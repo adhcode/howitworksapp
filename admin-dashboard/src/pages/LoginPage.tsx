@@ -130,8 +130,8 @@ export default function LoginPage() {
             </form>
 
             <div className="mt-8 pt-6 border-t border-gray-200 text-center text-sm text-gray-500">
-              <p>HowItWorks Admin Portal</p>
-              <p className="mt-1">© 2024 All rights reserved</p>
+              <p>HIW Maintenance Admin Portal</p>
+              <p className="mt-1">© 2025 All rights reserved</p>
             </div>
           </div>
         </div>
