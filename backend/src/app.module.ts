@@ -17,6 +17,7 @@ import { UploadModule } from './upload/upload.module';
 import { AdminModule } from './admin/admin.module';
 import { FacilitatorsModule } from './facilitators/facilitators.module';
 import { SetupModule } from './setup/setup.module';
+import { ArtisansModule } from './artisans/artisans.module';
 
 // NEW CORE MODULES (Clean Architecture)
 import { ContractsModule } from './core/contracts/contracts.module';
@@ -66,6 +67,7 @@ import { NotificationsModule } from './core/notifications/notifications.module';
     AdminModule,
     FacilitatorsModule,
     SetupModule,
+    ArtisansModule,
     
     // NEW CORE MODULES (Clean Architecture)
     ContractsModule,

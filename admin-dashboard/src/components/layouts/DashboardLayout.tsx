@@ -28,6 +28,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { name: 'Properties', href: '/properties', icon: Home, roles: ['admin', 'facilitator'] },
     { name: 'Maintenance', href: '/maintenance', icon: Wrench, roles: ['admin', 'facilitator'] },
     { name: 'Landlords', href: '/landlords', icon: UserCog, roles: ['admin'] },
+    { name: 'Artisans', href: '/artisans', icon: Users, roles: ['admin'] },
+    { name: 'My Artisans', href: '/my-artisans', icon: Users, roles: ['facilitator'] },
     { name: 'Settings', href: '/settings', icon: Settings, roles: ['admin', 'facilitator'] },
   ].filter(item => item.roles.includes(user?.role || ''))
 
@@ -55,7 +57,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200">
-            <img src="/HIWLogo.png" alt="HowItWorks" className="h-8 w-auto" />
+            <img src="/HIWLogo.png" alt="Property HomeCare" className="h-8 w-auto" />
             <button
               onClick={() => setSidebarOpen(false)}
               className="lg:hidden text-gray-500 hover:text-gray-700"
