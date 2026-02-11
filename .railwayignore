@@ -1,0 +1,18 @@
+# Exclude admin-dashboard from Railway deployments
+# Admin dashboard is deployed to Vercel
+admin-dashboard/
+
+# Exclude mobile app
+mobile/
+
+# Exclude documentation and scripts
+*.md
+*.sh
+.vscode/
+.git/
+.github/
+
+# Exclude build artifacts
+dist/
+build/
+*.log

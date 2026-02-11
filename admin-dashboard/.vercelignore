@@ -1,0 +1,5 @@
+# Vercel should only build admin-dashboard
+# Exclude everything outside admin-dashboard
+../backend/
+../mobile/
+../.git/

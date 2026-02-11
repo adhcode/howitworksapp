@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, Filter, Eye, CheckCircle, XCircle, Trash2, ExternalLink } from 'lucide-react';
+import { Search, Eye, CheckCircle, XCircle, Trash2 } from 'lucide-react';
 import { api } from '../lib/api';
 
 interface Artisan {

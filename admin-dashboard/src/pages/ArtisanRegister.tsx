@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { CheckCircle, Loader } from 'lucide-react';
 
 const SPECIALTIES = [
@@ -21,7 +21,6 @@ const AVAILABILITY_OPTIONS = ['Full-time', 'Part-time', 'Weekends', 'On-call'];
 
 export default function ArtisanRegister() {
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
   const facilitatorId = searchParams.get('ref');
 
   const [formData, setFormData] = useState({
@@ -57,7 +56,7 @@ export default function ArtisanRegister() {
 
     try {
       // Use environment variable or fallback to production URL
-      const apiUrl = import.meta.env.VITE_API_URL || 'https://propertyhomecare-production.up.railway.app';
+      const apiUrl = (import.meta as any).env?.VITE_API_URL || 'https://propertyhomecare-production.up.railway.app';
       
       const response = await fetch(`${apiUrl}/artisans/register`, {
         method: 'POST',

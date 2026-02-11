@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Copy, CheckCircle, Users, Link as LinkIcon } from 'lucide-react';
 import { api } from '../lib/api';
-import { useAuthStore } from '../store/authStore';
 import toast from 'react-hot-toast';
 
 interface Artisan {
@@ -25,7 +24,6 @@ interface Stats {
 }
 
 export default function FacilitatorArtisans() {
-  const { user } = useAuthStore();
   const [referralLink, setReferralLink] = useState('');
   const [artisans, setArtisans] = useState<Artisan[]>([]);
   const [stats, setStats] = useState<Stats>({ total: 0, pending: 0, approved: 0, rejected: 0 });
