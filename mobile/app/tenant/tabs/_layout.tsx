@@ -98,7 +98,7 @@ export default function TenantTabsLayout() {
             <Tabs.Screen name="home" options={{ title: 'Home' }} />
             <Tabs.Screen name="wallet" options={{ title: 'Wallet' }} />
             <Tabs.Screen name="reports" options={{ title: 'Reports' }} />
-            <Tabs.Screen name="settings" options={{ title: 'Settings' }} />
+            <Tabs.Screen name="settings" options={{ title: 'Profile' }} />
         </Tabs>
     );
 }

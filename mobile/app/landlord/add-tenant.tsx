@@ -75,8 +75,30 @@ const AddTenantScreen = () => {
   const loadAvailableUnits = async () => {
     try {
       setLoading(true);
-      const property = await apiService.getPropertyWithUnits(propertyId);
-      const available = property.units?.filter((unit: any) => unit.isAvailable) || [];
+      
+      // Load both property units and existing invitations
+      const [property, invitationsResponse] = await Promise.all([
+        apiService.getPropertyWithUnits(propertyId),
+        apiService.getMyInvitations()
+      ]);
+      
+      const allInvitations = Array.isArray(invitationsResponse) 
+        ? invitationsResponse 
+        : (invitationsResponse.data || []);
+      
+      // Get unit IDs that have pending or accepted invitations (exclude cancelled)
+      const occupiedUnitIds = allInvitations
+        .filter((inv: any) => 
+          inv.propertyId === propertyId && 
+          (inv.status === 'pending' || inv.status === 'accepted')
+        )
+        .map((inv: any) => inv.unitId);
+      
+      // Filter units: must be available AND not have pending/accepted invitations
+      const available = property.units?.filter((unit: any) => 
+        unit.isAvailable && !occupiedUnitIds.includes(unit.id)
+      ) || [];
+      
       setAvailableUnits(available);
 
       // If no unit was pre-selected and there are available units, select the first one
@@ -218,7 +240,7 @@ const AddTenantScreen = () => {
 
       // Generate a temporary email based on phone number
       // Tenant will provide their real email during signup
-      const tempEmail = `tenant_${formData.phoneNumber.replace(/[^0-9]/g, '')}@temp.howitworks.app`;
+      const tempEmail = `tenant_${formData.phoneNumber.replace(/[^0-9]/g, '')}@temp.propertyhomecare.app`;
 
       const selectedUnit = getSelectedUnit();
       const tenantData = {
@@ -322,7 +344,9 @@ const AddTenantScreen = () => {
                   {showUnitDropdown && (
                     <View style={styles.dropdownOptions}>
                       {availableUnits.length === 0 ? (
-                        <Text style={styles.noOptionsText}>No available units</Text>
+                        <Text style={styles.noOptionsText}>
+                          No available units. All units are either occupied or have pending invitations.
+                        </Text>
                       ) : (
                         availableUnits.map((unit) => (
                           <TouchableOpacity

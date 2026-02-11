@@ -1,4 +1,4 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, Get, Query, UseGuards, Request, Patch } from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, HttpStatus, Get, Query, UseGuards, Request, Patch, Delete } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { LoginDto, RegisterDto, AuthResponseDto } from './dto/auth.dto';
@@ -143,5 +143,19 @@ export class AuthController {
   @ApiResponse({ status: 400, description: 'Invalid or expired code' })
   async resetPasswordWithCode(@Body() body: { email: string; code: string; password: string }): Promise<{ message: string }> {
     return this.authService.resetPasswordWithCode(body.email, body.code, body.password);
+  }
+
+  @Delete('account')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Delete own account' })
+  @ApiResponse({ status: 200, description: 'Account deleted successfully' })
+  @ApiResponse({ status: 401, description: 'Unauthorized or incorrect password' })
+  async deleteAccount(
+    @Request() req: any,
+    @Body() body: { password: string },
+  ): Promise<{ message: string }> {
+    return this.authService.deleteAccount(req.user.id, body.password);
   }
 }

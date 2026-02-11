@@ -77,10 +77,10 @@ const SplashScreen = () => {
             />
           ) : (
             <View style={[styles.logo, styles.logoFallback]}>
-              <Text style={styles.logoFallbackText}>HIW</Text>
+              <Text style={styles.logoFallbackText}>PHC</Text>
             </View>
           )}
-          <Text style={styles.brandName}>HIW Maintenance</Text>
+          <Text style={styles.brandName}>Property HomeCare</Text>
           <Text style={styles.tagline}>Smart Property Care</Text>
           <View style={styles.loadingContainer}>
             <View style={styles.loadingBar}>

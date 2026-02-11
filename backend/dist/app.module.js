@@ -27,6 +27,7 @@ const _uploadmodule = require("./upload/upload.module");
 const _adminmodule = require("./admin/admin.module");
 const _facilitatorsmodule = require("./facilitators/facilitators.module");
 const _setupmodule = require("./setup/setup.module");
+const _artisansmodule = require("./artisans/artisans.module");
 const _contractsmodule = require("./core/contracts/contracts.module");
 const _paymentsmodule = require("./core/payments/payments.module");
 const _escrowmodule = require("./core/escrow/escrow.module");
@@ -78,6 +79,7 @@ AppModule = _ts_decorate([
             _adminmodule.AdminModule,
             _facilitatorsmodule.FacilitatorsModule,
             _setupmodule.SetupModule,
+            _artisansmodule.ArtisansModule,
             // NEW CORE MODULES (Clean Architecture)
             _contractsmodule.ContractsModule,
             _paymentsmodule.PaymentsModule,

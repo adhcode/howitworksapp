@@ -1,4 +1,4 @@
-# Google Play Store Submission Checklist for Homezy
+# Google Play Store Submission Checklist for Property HomeCare
 
 ## 🎯 IMMEDIATE ACTION ITEMS
 
@@ -12,7 +12,7 @@
 3. Accept the Developer Distribution Agreement
 4. Pay the $25 registration fee (credit card)
 5. Complete your account details:
-   - Developer name (will be public): "Homezy" or your company name
+   - Developer name (will be public): "Property HomeCare" or your company name
    - Email address (for user contact)
    - Phone number
    - Website (optional but recommended)
@@ -25,7 +25,7 @@
 ## 📋 REQUIRED ASSETS CHECKLIST
 
 ### ✅ App Information
-- [ ] **App Name:** "Homezy" or "HIW Maintenance" (max 50 characters)
+- [ ] **App Name:** "Property HomeCare" or "Property HomeCare" (max 50 characters)
 - [ ] **Short Description:** 80 characters max
   - Example: "Manage properties, tenants, rent payments & maintenance requests easily"
 - [ ] **Full Description:** Up to 4000 characters
@@ -240,7 +240,7 @@ cd android
 1. Go to https://play.google.com/console
 2. Click "Create app"
 3. Fill in basic info:
-   - App name: Homezy
+   - App name: Property HomeCare
    - Default language: English
    - App or game: App
    - Free or paid: Free

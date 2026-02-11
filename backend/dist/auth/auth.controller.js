@@ -85,6 +85,9 @@ let AuthController = class AuthController {
     async resetPasswordWithCode(body) {
         return this.authService.resetPasswordWithCode(body.email, body.code, body.password);
     }
+    async deleteAccount(req, body) {
+        return this.authService.deleteAccount(req.user.id, body.password);
+    }
     constructor(authService){
         this.authService = authService;
     }
@@ -373,6 +376,31 @@ _ts_decorate([
     ]),
     _ts_metadata("design:returntype", Promise)
 ], AuthController.prototype, "resetPasswordWithCode", null);
+_ts_decorate([
+    (0, _common.Delete)('account'),
+    (0, _common.UseGuards)(_jwtauthguard.JwtAuthGuard),
+    (0, _swagger.ApiBearerAuth)('JWT-auth'),
+    (0, _common.HttpCode)(_common.HttpStatus.OK),
+    (0, _swagger.ApiOperation)({
+        summary: 'Delete own account'
+    }),
+    (0, _swagger.ApiResponse)({
+        status: 200,
+        description: 'Account deleted successfully'
+    }),
+    (0, _swagger.ApiResponse)({
+        status: 401,
+        description: 'Unauthorized or incorrect password'
+    }),
+    _ts_param(0, (0, _common.Request)()),
+    _ts_param(1, (0, _common.Body)()),
+    _ts_metadata("design:type", Function),
+    _ts_metadata("design:paramtypes", [
+        Object,
+        Object
+    ]),
+    _ts_metadata("design:returntype", Promise)
+], AuthController.prototype, "deleteAccount", null);
 AuthController = _ts_decorate([
     (0, _swagger.ApiTags)('Authentication'),
     (0, _common.Controller)('auth'),

@@ -324,11 +324,11 @@ export class NotificationSenderService {
               <p>${payload.message}</p>
               ${payload.data?.amount ? `<p><strong>Amount: $${payload.data.amount}</strong></p>` : ''}
               ${payload.data?.dueDate ? `<p><strong>Due Date: ${new Date(payload.data.dueDate).toLocaleDateString()}</strong></p>` : ''}
-              <a href="${process.env.MOBILE_APP_DEEP_LINK || '#'}" class="button">Open Homezy App</a>
+              <a href="${process.env.MOBILE_APP_DEEP_LINK || '#'}" class="button">Open Property HomeCare App</a>
             </div>
             <div class="footer">
-              <p>This is an automated message from Homezy</p>
-              <p>© ${new Date().getFullYear()} Homezy. All rights reserved.</p>
+              <p>This is an automated message from Property HomeCare</p>
+              <p>© ${new Date().getFullYear()} Property HomeCare. All rights reserved.</p>
             </div>
           </div>
         </body>

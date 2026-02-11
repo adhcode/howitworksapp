@@ -6,12 +6,14 @@ import {
   ScrollView,
   SafeAreaView,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
 import colors from '../../theme/colors';
 import Avatar from '../../components/shared/Avatar';
+import { apiService } from '../../services/api';
 
 const TenantSettingsScreen = () => {
   const router = useRouter();
@@ -32,6 +34,69 @@ const TenantSettingsScreen = () => {
 
   const handleChangePassword = () => {
     router.push('/tenant/change-password');
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Delete Account',
+      'Are you sure you want to permanently delete your account? This action cannot be undone.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            // Show password confirmation
+            Alert.prompt(
+              'Confirm Password',
+              'Please enter your password to confirm account deletion',
+              [
+                {
+                  text: 'Cancel',
+                  style: 'cancel',
+                },
+                {
+                  text: 'Delete Account',
+                  style: 'destructive',
+                  onPress: async (password) => {
+                    if (!password) {
+                      Alert.alert('Error', 'Password is required');
+                      return;
+                    }
+                    
+                    try {
+                      await apiService.deleteAccount(password);
+                      Alert.alert(
+                        'Account Deleted',
+                        'Your account has been permanently deleted',
+                        [
+                          {
+                            text: 'OK',
+                            onPress: async () => {
+                              await logout();
+                              router.replace('/auth/login');
+                            },
+                          },
+                        ]
+                      );
+                    } catch (error: any) {
+                      Alert.alert(
+                        'Error',
+                        error.response?.data?.message || 'Failed to delete account. Please check your password and try again.'
+                      );
+                    }
+                  },
+                },
+              ],
+              'secure-text'
+            );
+          },
+        },
+      ]
+    );
   };
 
   const menuItems = [
@@ -109,6 +174,12 @@ const TenantSettingsScreen = () => {
           <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
             <MaterialIcons name="logout" size={20} color="#fff" />
             <Text style={styles.logoutText}>Logout</Text>
+          </TouchableOpacity>
+
+          {/* Delete Account Button */}
+          <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteAccount}>
+            <MaterialIcons name="delete-forever" size={20} color="#fff" />
+            <Text style={styles.deleteText}>Delete Account</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -257,8 +328,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 20,
+    marginBottom: 12,
   },
   logoutText: {
+    color: '#fff',
+    fontSize: 16,
+    fontFamily: 'Outfit_600SemiBold',
+    marginLeft: 8,
+  },
+  deleteButton: {
+    backgroundColor: '#DC2626',
+    borderRadius: 12,
+    paddingVertical: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteText: {
     color: '#fff',
     fontSize: 16,
     fontFamily: 'Outfit_600SemiBold',

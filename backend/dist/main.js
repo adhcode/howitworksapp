@@ -116,14 +116,15 @@ async function bootstrap() {
     // CORS
     app.enableCors({
         origin: nodeEnv === 'production' ? [
-            'https://',
             'capacitor://localhost',
             'ionic://localhost',
             'http://localhost',
             'http://localhost:3000',
             'http://localhost:3001',
             'http://localhost:8081',
-            'http://localhost:8100'
+            'http://localhost:8100',
+            'https://howitworksapp.vercel.app',
+            'https://app.howitworks.com.ng'
         ] : true,
         credentials: true,
         methods: [

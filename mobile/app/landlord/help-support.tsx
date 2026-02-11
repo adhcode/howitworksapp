@@ -19,8 +19,8 @@ export default function HelpSupportScreen() {
     {
       icon: 'email',
       title: 'Email Support',
-      subtitle: 'support@howitworks.com.ng',
-      action: () => Linking.openURL('mailto:support@howitworks.com.ng'),
+      subtitle: 'support@propertyhomecare.com.ng',
+      action: () => Linking.openURL('mailto:support@propertyhomecare.com.ng'),
     },
     {
       icon: 'phone',

@@ -647,7 +647,7 @@ const AddPropertyScreen = () => {
                                             modalType === 'city' ? cityOptions :
                                                 modalType === 'propertyType' ? propertyTypes : []
                                     }
-                                    keyExtractor={item => typeof item === 'string' ? item : item.value}
+                                    keyExtractor={(item, index) => `${typeof item === 'string' ? item : item.value}-${index}`}
                                     renderItem={({ item }) => (
                                         <TouchableOpacity
                                             style={styles.modalItem}

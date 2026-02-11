@@ -419,4 +419,26 @@ export class AuthService {
       message: 'Password has been reset successfully. You can now log in with your new password.',
     };
   }
+
+  async deleteAccount(userId: string, password: string): Promise<{ message: string }> {
+    // Get user
+    const user = await this.usersService.findById(userId);
+    
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    // Verify password
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Incorrect password');
+    }
+
+    // Delete user account
+    await this.usersService.delete(userId);
+
+    return {
+      message: 'Your account has been permanently deleted',
+    };
+  }
 }

@@ -18,9 +18,9 @@ const TenantGreetingHeader: React.FC<TenantGreetingHeaderProps> = ({ user, tenan
         return 'Good evening';
     };
 
-    const displayName = tenantData?.tenant ?
-        `${tenantData.tenant.firstName} ${tenantData.tenant.lastName}` :
-        `${user?.firstName || 'User'} ${user?.lastName || ''}`;
+    const displayName = user?.firstName && user?.lastName
+        ? `${user.firstName} ${user.lastName}`
+        : user?.firstName || 'User';
 
     return (
         <View style={styles.container}>

@@ -33,14 +33,8 @@ const NotificationsScreen = () => {
     }, [user?.id, loadNotifications])
   );
 
-  useEffect(() => {
-    console.log('📊 Notifications updated, count:', notifications.length);
-    
-    // Mark all as read when user opens notifications
-    if (notifications.some(n => !n.isRead)) {
-      markAllAsRead();
-    }
-  }, [notifications]);
+  // Don't auto-mark all as read - let them stay visible
+  // Users can manually mark as read if needed
 
   const handleClearAll = () => {
     Alert.alert(
@@ -109,7 +103,18 @@ const NotificationsScreen = () => {
         ) : (
           <View style={styles.notificationsList}>
             {notifications.map((notification) => (
-              <View key={notification.id} style={styles.notificationItem}>
+              <TouchableOpacity
+                key={notification.id}
+                style={[
+                  styles.notificationItem,
+                  !notification.isRead && styles.unreadNotification
+                ]}
+                onPress={() => markAsRead(notification.id)}
+                activeOpacity={0.7}
+              >
+                {!notification.isRead && (
+                  <View style={styles.unreadIndicator} />
+                )}
                 <View style={styles.notificationIcon}>
                   <MaterialIcons
                     name={getNotificationIcon(notification.type) as any}
@@ -124,7 +129,7 @@ const NotificationsScreen = () => {
                     {formatDate(notification.createdAt)}
                   </Text>
                 </View>
-              </View>
+              </TouchableOpacity>
             ))}
           </View>
         )}
@@ -209,6 +214,21 @@ const styles = StyleSheet.create({
     },
     shadowOpacity: 0.05,
     shadowRadius: 2,
+    position: 'relative',
+  },
+  unreadNotification: {
+    backgroundColor: '#F0F9FF',
+    borderColor: colors.secondary,
+    borderWidth: 2,
+  },
+  unreadIndicator: {
+    position: 'absolute',
+    left: 8,
+    top: 8,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.secondary,
   },
   notificationIcon: {
     width: 40,

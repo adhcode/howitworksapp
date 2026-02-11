@@ -54,6 +54,69 @@ const EnhancedProfileScreen = () => {
     );
   };
 
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Delete Account',
+      'Are you sure you want to permanently delete your account? This action cannot be undone.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            // Show password confirmation
+            Alert.prompt(
+              'Confirm Password',
+              'Please enter your password to confirm account deletion',
+              [
+                {
+                  text: 'Cancel',
+                  style: 'cancel',
+                },
+                {
+                  text: 'Delete Account',
+                  style: 'destructive',
+                  onPress: async (password) => {
+                    if (!password) {
+                      Alert.alert('Error', 'Password is required');
+                      return;
+                    }
+                    
+                    try {
+                      await apiService.deleteAccount(password);
+                      Alert.alert(
+                        'Account Deleted',
+                        'Your account has been permanently deleted',
+                        [
+                          {
+                            text: 'OK',
+                            onPress: async () => {
+                              await logout();
+                              router.replace('/auth/login');
+                            },
+                          },
+                        ]
+                      );
+                    } catch (error: any) {
+                      Alert.alert(
+                        'Error',
+                        error.response?.data?.message || 'Failed to delete account. Please check your password and try again.'
+                      );
+                    }
+                  },
+                },
+              ],
+              'secure-text'
+            );
+          },
+        },
+      ]
+    );
+  };
+
 
 
   const menuItems = [
@@ -155,6 +218,19 @@ const EnhancedProfileScreen = () => {
             </Text>
           </TouchableOpacity>
 
+          {/* Delete Account Button */}
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={handleDeleteAccount}
+            activeOpacity={0.7}
+          >
+            <MaterialIcons
+              name="delete-forever"
+              size={24}
+              color="#DC2626"
+            />
+            <Text style={styles.deleteText}>Delete Account</Text>
+          </TouchableOpacity>
 
         </View>
       </ScrollView>
@@ -299,12 +375,29 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#FEE2E2',
     gap: 12,
-    marginBottom: 24,
+    marginBottom: 12,
   },
   logoutText: {
     fontSize: 16,
     fontFamily: 'Outfit_600SemiBold',
     color: '#EF4444',
+  },
+  deleteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    gap: 12,
+    marginBottom: 24,
+  },
+  deleteText: {
+    fontSize: 16,
+    fontFamily: 'Outfit_600SemiBold',
+    color: '#DC2626',
   },
 
 });

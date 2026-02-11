@@ -1,29 +1,30 @@
 {
   "expo": {
-    "scheme": "homezy",
-    "name": "Homezy",
+    "scheme": "property-homecare",
+    "name": "Property HomeCare",
     "slug": "homezy",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "newArchEnabled": false,
+    "jsEngine": "hermes",
     "icon": "./assets/splash.png",
     "splash": {
-       "image": "./assets/splash.png",
-
+      "image": "./assets/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#FFFFFF"
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.adhcode.homezy"
+      "bundleIdentifier": "com.adhcode.propertyhomecare"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/splash.png",
         "backgroundColor": "#FFFFFF"
       },
-      "package": "com.adhcode.homezy",
+      "package": "com.adhcode.propertyhomecare",
+      "versionCode": 1,
       "permissions": [
         "CAMERA",
         "READ_EXTERNAL_STORAGE",
@@ -44,6 +45,7 @@
       "eas": {
         "projectId": "a06508a1-b734-4818-920a-d3fabfe4178e"
       }
-    }
+    },
+    "owner": "adhcode"
   }
 }

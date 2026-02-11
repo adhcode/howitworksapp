@@ -46,11 +46,11 @@ const TenantInvitationSuccessScreen = () => {
 
   const shareInvitation = async () => {
     try {
-      const message = `Hi ${tenantName}!\n\nYou've been invited to join as a tenant. Please use this token to complete your registration in the Homezy app:\n\nInvitation Token: ${invitationToken}\n\nDownload the Homezy app and use this token during signup.\n\nThis invitation will expire in 30 days.`;
+      const message = `Hi ${tenantName}!\n\nYou've been invited to join as a tenant. Please use this token to complete your registration in the Property HomeCare app:\n\nInvitation Token: ${invitationToken}\n\nDownload the Property HomeCare app and use this token during signup.\n\nThis invitation will expire in 30 days.`;
       
       await Share.share({
         message,
-        title: 'Tenant Invitation - Homezy',
+        title: 'Tenant Invitation - Property HomeCare',
       });
     } catch (error) {
       showAlert('error', 'Share Failed', 'Failed to share invitation');
@@ -131,7 +131,7 @@ const TenantInvitationSuccessScreen = () => {
                 Share the invitation token above with {tenantName}. They will need to:
               </Text>
               <Text style={styles.instructionText}>
-                1. Download the Homezy app{'\n'}
+                1. Download the Property HomeCare app{'\n'}
                 2. Select "Sign up with Invitation Token"{'\n'}
                 3. Enter the token: <Text style={styles.tokenHighlight}>{invitationToken}</Text>{'\n'}
                 4. Complete their registration

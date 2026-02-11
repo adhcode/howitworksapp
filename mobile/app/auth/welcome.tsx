@@ -45,17 +45,17 @@ const WelcomeScreen = () => {
         <View style={styles.logoContainer}>
           {!logoError ? (
             <Image
-              source={require('../assets/images/HIWLogo.png')}
+              source={require('../../assets/splash.png')}
               style={styles.logo}
               resizeMode="contain"
               onError={() => setLogoError(true)}
             />
           ) : (
             <View style={[styles.logo, styles.logoFallback]}>
-              <Text style={styles.logoFallbackText}>HIW</Text>
+              <Text style={styles.logoFallbackText}>PHC</Text>
             </View>
           )}
-          <Text style={styles.brandName}>HIW Maintenance</Text>
+          <Text style={styles.brandName}>Property HomeCare</Text>
           {tenantName ? (
             <Text style={styles.personalizedTagline}>Welcome back, {tenantName}!</Text>
           ) : (

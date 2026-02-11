@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# HowitWorks - Build and Deploy Script
+# Property HomeCare - Build and Deploy Script
 # Date: December 5, 2025
 
 set -e  # Exit on error
 
-echo "🚀 HowitWorks - Build and Deploy Script"
+echo "🚀 Property HomeCare - Build and Deploy Script"
 echo "========================================"
 echo ""
 

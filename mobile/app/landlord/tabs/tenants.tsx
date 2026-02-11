@@ -7,10 +7,14 @@ import {
   ScrollView,
   RefreshControl,
   Image,
+  Modal,
+  Share,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
 import colors from '../../theme/colors';
 import { apiService } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
@@ -24,6 +28,8 @@ export default function TenantManagementScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
+  const [tokenModalVisible, setTokenModalVisible] = useState(false);
+  const [selectedInvitation, setSelectedInvitation] = useState<any>(null);
 
   useEffect(() => {
     loadProperties();
@@ -40,18 +46,18 @@ export default function TenantManagementScreen() {
     try {
       setError(null);
 
-      // Load tenants and properties in parallel
-      const [tenantsResponse, propertiesResponse] = await Promise.all([
-        apiService.getTenantsByLandlord(),
+      // Load invitations (which includes ALL tenants regardless of status) and properties
+      const [invitationsResponse, propertiesResponse] = await Promise.all([
+        apiService.getMyInvitations(),
         apiService.getProperties(1, 50)
       ]);
 
-      // Extract tenants array
-      const allTenants = Array.isArray(tenantsResponse)
-        ? tenantsResponse
-        : ((tenantsResponse as any)?.data || []);
+      // Extract invitations array - this is our source of truth for all tenants
+      const allInvitations = Array.isArray(invitationsResponse)
+        ? invitationsResponse
+        : ((invitationsResponse as any)?.data || []);
 
-      // Extract properties array - API service already extracts nested data
+      // Extract properties array
       const allProperties = Array.isArray(propertiesResponse)
         ? propertiesResponse
         : ((propertiesResponse as any)?.data || []);
@@ -61,27 +67,32 @@ export default function TenantManagementScreen() {
         return;
       }
 
-      // Group tenants by property and calculate stats
+      // Group invitations by property and calculate stats
       const propertiesWithTenants = allProperties.map((property: any) => {
-        const propertyTenants = allTenants.filter((tenant: any) => tenant.propertyId === property.id);
+        // Get all invitations for this property (excluding cancelled)
+        const propertyInvitations = allInvitations.filter((inv: any) => 
+          inv.propertyId === property.id && inv.status !== 'cancelled'
+        );
 
         // Calculate stats
-        const totalTenants = propertyTenants.length;
-        const activeTenants = propertyTenants.filter((tenant: any) => tenant.status === 'accepted').length;
+        const totalTenants = propertyInvitations.length;
+        const activeTenants = propertyInvitations.filter((inv: any) => inv.status === 'accepted').length;
+        const pendingTenants = propertyInvitations.filter((inv: any) => inv.status === 'pending').length;
 
-        // Calculate monthly rent from tenants
-        const monthlyRent = propertyTenants.reduce((total: number, tenant: any) => {
-          return total + (parseFloat(tenant.monthlyRent) || 0);
+        // Calculate monthly rent from all invitations (excluding cancelled)
+        const monthlyRent = propertyInvitations.reduce((total: number, inv: any) => {
+          return total + (parseFloat(inv.monthlyRent) || 0);
         }, 0);
 
         return {
           ...property,
           totalTenants,
           activeTenants,
-          occupiedUnits: totalTenants,
-          vacantUnits: Math.max(0, (property.totalUnits || 0) - totalTenants),
+          pendingTenants,
+          occupiedUnits: activeTenants, // Only count accepted as occupied
+          vacantUnits: Math.max(0, (property.totalUnits || 0) - activeTenants),
           monthlyRent,
-          tenants: propertyTenants,
+          tenants: propertyInvitations, // Use invitations as tenants (excluding cancelled)
         };
       });
 
@@ -125,6 +136,31 @@ export default function TenantManagementScreen() {
     const totalProperties = properties.length;
 
     return { totalTenants, totalActive, totalRent, totalProperties };
+  };
+
+  const handleViewToken = (tenant: any) => {
+    setSelectedInvitation(tenant);
+    setTokenModalVisible(true);
+  };
+
+  const handleCopyToken = async () => {
+    if (selectedInvitation?.invitationToken) {
+      await Clipboard.setStringAsync(selectedInvitation.invitationToken);
+      Alert.alert('Success', 'Token copied to clipboard!');
+    }
+  };
+
+  const handleShareToken = async () => {
+    if (selectedInvitation?.invitationToken) {
+      try {
+        const message = `Your Property HomeCare invitation token is: ${selectedInvitation.invitationToken}\n\nUse this token to complete your registration.`;
+        await Share.share({
+          message,
+        });
+      } catch (error) {
+        console.error('Error sharing token:', error);
+      }
+    }
   };
 
   const totalStats = getTotalStats();
@@ -207,6 +243,43 @@ export default function TenantManagementScreen() {
           {/* Properties Section */}
           <View style={styles.propertiesSection}>
             <Text style={styles.sectionTitle}>Properties with Tenants ({properties.length})</Text>
+
+            {/* Pending Invitations Section */}
+            {(() => {
+              const pendingInvitations = properties
+                .flatMap(prop => prop.tenants)
+                .filter((tenant: any) => tenant.status === 'pending' && tenant.invitationToken);
+              
+              if (pendingInvitations.length > 0) {
+                return (
+                  <View style={styles.pendingSection}>
+                    <View style={styles.pendingSectionHeader}>
+                      <MaterialIcons name="schedule" size={20} color="#FF9800" />
+                      <Text style={styles.pendingSectionTitle}>
+                        Pending Invitations ({pendingInvitations.length})
+                      </Text>
+                    </View>
+                    {pendingInvitations.map((tenant: any) => (
+                      <View key={tenant.id} style={styles.pendingCard}>
+                        <View style={styles.pendingInfo}>
+                          <Text style={styles.pendingName}>
+                            {tenant.firstName} {tenant.lastName}
+                          </Text>
+                        </View>
+                        <TouchableOpacity
+                          style={styles.viewTokenButtonSmall}
+                          onPress={() => handleViewToken(tenant)}
+                        >
+                          <MaterialIcons name="vpn-key" size={16} color={colors.secondary} />
+                          <Text style={styles.viewTokenButtonSmallText}>View Token</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                );
+              }
+              return null;
+            })()}
 
             {!error && properties.length === 0 ? (
               <View style={styles.emptyState}>
@@ -313,6 +386,64 @@ export default function TenantManagementScreen() {
           </View>
         </View>
       </ScrollView>
+
+      {/* Token Modal */}
+      <Modal
+        visible={tokenModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setTokenModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Invitation Token</Text>
+              <TouchableOpacity
+                onPress={() => setTokenModalVisible(false)}
+                style={styles.closeButton}
+              >
+                <MaterialIcons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalBody}>
+              <Text style={styles.modalLabel}>Tenant Name:</Text>
+              <Text style={styles.modalValue}>
+                {selectedInvitation?.firstName} {selectedInvitation?.lastName}
+              </Text>
+
+              <Text style={[styles.modalLabel, { marginTop: 16 }]}>Invitation Token:</Text>
+              <View style={styles.tokenContainer}>
+                <Text style={styles.tokenText}>{selectedInvitation?.invitationToken}</Text>
+              </View>
+
+              <Text style={styles.modalHint}>
+                Share this token with the tenant so they can complete their registration.
+              </Text>
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={styles.modalButton}
+                  onPress={handleCopyToken}
+                >
+                  <MaterialIcons name="content-copy" size={20} color="#fff" />
+                  <Text style={styles.modalButtonText}>Copy Token</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalButtonSecondary]}
+                  onPress={handleShareToken}
+                >
+                  <MaterialIcons name="share" size={20} color={colors.secondary} />
+                  <Text style={[styles.modalButtonText, styles.modalButtonTextSecondary]}>
+                    Share Token
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -595,6 +726,160 @@ const styles = StyleSheet.create({
   nairaIconLarge: {
     fontSize: 24,
     fontWeight: 'bold',
+    color: colors.secondary,
+  },
+  pendingSection: {
+    backgroundColor: '#FFF9E6',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#FFE0B2',
+  },
+  pendingSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  pendingSectionTitle: {
+    fontSize: 16,
+    fontFamily: 'Outfit_600SemiBold',
+    color: '#FF9800',
+  },
+  pendingCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+  },
+  pendingInfo: {
+    flex: 1,
+  },
+  pendingName: {
+    fontSize: 14,
+    fontFamily: 'Outfit_600SemiBold',
+    color: colors.primary,
+    marginBottom: 2,
+  },
+  pendingPhone: {
+    fontSize: 12,
+    fontFamily: 'Outfit_400Regular',
+    color: '#666',
+  },
+  viewTokenButtonSmall: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: `${colors.secondary}15`,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    gap: 4,
+  },
+  viewTokenButtonSmallText: {
+    fontSize: 12,
+    fontFamily: 'Outfit_600SemiBold',
+    color: colors.secondary,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    width: '100%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontFamily: 'Outfit_600SemiBold',
+    color: colors.primary,
+  },
+  closeButton: {
+    padding: 4,
+  },
+  modalBody: {
+    padding: 20,
+  },
+  modalLabel: {
+    fontSize: 14,
+    fontFamily: 'Outfit_500Medium',
+    color: '#666',
+    marginBottom: 8,
+  },
+  modalValue: {
+    fontSize: 16,
+    fontFamily: 'Outfit_600SemiBold',
+    color: colors.primary,
+  },
+  tokenContainer: {
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 2,
+    borderColor: colors.secondary,
+    borderStyle: 'dashed',
+  },
+  tokenText: {
+    fontSize: 24,
+    fontFamily: 'Outfit_700Bold',
+    color: colors.secondary,
+    textAlign: 'center',
+    letterSpacing: 2,
+  },
+  modalHint: {
+    fontSize: 13,
+    fontFamily: 'Outfit_400Regular',
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 12,
+    lineHeight: 18,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 24,
+  },
+  modalButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.secondary,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    gap: 8,
+  },
+  modalButtonSecondary: {
+    backgroundColor: `${colors.secondary}15`,
+  },
+  modalButtonText: {
+    fontSize: 14,
+    fontFamily: 'Outfit_600SemiBold',
+    color: '#fff',
+  },
+  modalButtonTextSecondary: {
     color: colors.secondary,
   },
 }); 

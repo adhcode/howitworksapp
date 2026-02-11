@@ -3,7 +3,7 @@ import { AuthResponse, HealthResponse, Property, User } from '../types/api';
 // Configuration
 const config = {
   development: {
-    baseURL: 'http://192.168.1.18:3003', // Local development backend
+    baseURL: 'http://192.168.1.5:3003', // Local development backend
     timeout: 45000, // Increased to 45 seconds for slow queries
     enableLogging: true,
   },
@@ -292,6 +292,13 @@ class ApiService {
     return this.request<{ message: string }>('/auth/change-password', {
       method: 'PATCH',
       body: JSON.stringify({ currentPassword, newPassword }),
+    });
+  }
+
+  async deleteAccount(password: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>('/auth/account', {
+      method: 'DELETE',
+      body: JSON.stringify({ password }),
     });
   }
 
