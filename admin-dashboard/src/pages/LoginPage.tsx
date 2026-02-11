@@ -44,7 +44,7 @@ export default function LoginPage() {
     <div className="min-h-screen bg-white flex">
       {/* Left side - Logo */}
       <div className="hidden lg:flex lg:w-1/2 flex-col justify-center items-center px-12">
-            <img src="/HIWLogo.png" alt="HowItWorks" className="h-22 w-auto" />
+            <img src="/HIWLogo.png" alt="Property HomeCare" className="h-22 w-auto" />
       </div>
 
       {/* Right side - Login form */}
@@ -52,7 +52,7 @@ export default function LoginPage() {
         <div className="w-full max-w-md">
           {/* Mobile logo */}
           <div className="lg:hidden flex justify-center mb-8">
-            <img src="/HIWLogo.png" alt="HowItWorks" className="h-16 w-auto" />
+            <img src="/HIWLogo.png" alt="Property HomeCare" className="h-16 w-auto" />
           </div>
 
           <div className="bg-white p-8">
@@ -85,7 +85,7 @@ export default function LoginPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   required
                   className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1A2A52] focus:border-transparent outline-none transition text-gray-900 placeholder-gray-400"
-                  placeholder="admin@howitworks.app"
+                  placeholder="admin@propertyhomecare.app"
                 />
               </div>
 
@@ -130,7 +130,7 @@ export default function LoginPage() {
             </form>
 
             <div className="mt-8 pt-6 border-t border-gray-200 text-center text-sm text-gray-500">
-              <p>HIW Maintenance Admin Portal</p>
+              <p>Property HomeCare Admin Portal</p>
               <p className="mt-1">© 2025 All rights reserved</p>
             </div>
           </div>

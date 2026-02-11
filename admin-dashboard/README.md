@@ -1,6 +1,6 @@
-# HowItWorks Admin Dashboard
+# Property HomeCare Admin Dashboard
 
-A modern admin dashboard built with Vite, React, TypeScript, and Tailwind CSS for managing the HowItWorks property management platform.
+A modern admin dashboard built with Vite, React, TypeScript, and Tailwind CSS for managing the Property HomeCare property management platform.
 
 ## Features
 
@@ -51,7 +51,7 @@ cp .env.example .env
 4. Update `.env` with your API URL:
 ```env
 VITE_API_URL=http://localhost:3000
-VITE_APP_NAME=HowItWorks Admin
+VITE_APP_NAME=Property HomeCare Admin
 ```
 
 5. Start the development server:
@@ -171,7 +171,7 @@ The dashboard connects to the backend API with the following endpoints:
 
 ```env
 VITE_API_URL=http://localhost:3000  # Backend API URL
-VITE_APP_NAME=HowItWorks Admin      # Application name
+VITE_APP_NAME=Property HomeCare Admin      # Application name
 ```
 
 ## Development
@@ -237,4 +237,4 @@ Proprietary - All rights reserved
 
 ## Support
 
-For support, email support@howitworks.app
+For support, email support@propertyhomecare.app
